@@ -1,0 +1,19 @@
+{
+    "name": "com.exerussus.microservice.modules.fishnet",
+    "rootNamespace": "",
+    "references": [
+        "GUID:986181d2ea9140bea4793aaf4fc147cf",
+        "GUID:7c88a4a7926ee5145ad2dfa06f454c67",
+        "GUID:f51ebe6a0ceec4240a699833d6309b23",
+        "GUID:5d2496e3961aab04698216f31a3d9282"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

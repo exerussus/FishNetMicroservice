@@ -1,0 +1,23 @@
+{
+  "name": "com.exerussus.microservice.modules.fishnet",
+  "version": "1.0.0",
+  "displayName": "FishNet Microservice",
+  "description": "Микро-сервис предоставляющий аутентификацию, матч-мэйкинг и управление сессией клиентов через FishNet.",
+  "unity": "2020.3",
+  "dependencies": {},
+  "keywords": [
+    "microservices",
+    "modules",
+    "fishnet",
+    "1extensions",
+    "exerussus"
+  ],
+  "author": {
+    "name": "Exerussus",
+    "email": "solovyov.production@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/exerussus/1ServiceFishnetAuthenticator.git"
+  }
+}
