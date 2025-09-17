@@ -312,7 +312,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         private async UniTask CheckAsync<T>(IAuthenticator<T> authenticator, ConnectionContext context, T data) where T : struct, IBroadcast
         {
             var result = await authenticator.OnDataCheck(context, data);
-            if (result) ConnectionContext.Handle.SetDataApproved(context, true);
+            if (result.isApproved) ConnectionContext.Handle.SetApprovedUserId(context, result.userId);
             else ConnectionContext.Handle.SetKickTime(context, 0f);
         }
 

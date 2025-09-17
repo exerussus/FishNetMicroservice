@@ -10,6 +10,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
     {
         internal ConnectionContext() { }
         public string NickName { get; private set; }
+        public long UserId { get; private set; }
         public NetworkConnection NetworkConnection { get; private set; }
         public IAuthenticator Authenticator { get; private set; }
         public Room Room { get; private set; }
@@ -36,8 +37,12 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             internal static void SetSessionStarted(ConnectionContext context, bool isSessionStarted) => context.IsSessionStarted = isSessionStarted;
             
             [Impl(MethodImplOptions.AggressiveInlining)]
-            internal static void SetDataApproved(ConnectionContext context, bool dataApproved) => context.DataApproved = dataApproved;
-            
+            internal static void SetApprovedUserId(ConnectionContext context, long userId)
+            {
+                context.UserId = userId;
+                context.DataApproved = true;
+            }
+
             [Impl(MethodImplOptions.AggressiveInlining)]
             internal static void SetKickTime(ConnectionContext context, float kickTime) => context.KickTime = kickTime;
             
