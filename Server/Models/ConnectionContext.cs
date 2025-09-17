@@ -11,7 +11,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         internal ConnectionContext() { }
         public string NickName { get; private set; }
         public NetworkConnection NetworkConnection { get; private set; }
-        public Authenticator Authenticator { get; private set; }
+        public IAuthenticator Authenticator { get; private set; }
         public Room Room { get; private set; }
         public bool IsAuthenticated { get; private set; }
         public bool IsSessionStarted { get; private set; }
@@ -20,7 +20,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public object Data { get; private set; }
 
         public static implicit operator NetworkConnection(ConnectionContext context) => context.NetworkConnection;
-        public static implicit operator Authenticator(ConnectionContext context) => context.Authenticator;   
         
         public static class Handle
         {
@@ -46,7 +45,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             internal static void SetNetworkConnection(ConnectionContext context, NetworkConnection networkConnection) => context.NetworkConnection = networkConnection;
             
             [Impl(MethodImplOptions.AggressiveInlining)]
-            internal static void SetAuthenticator(ConnectionContext context, Authenticator authenticator) => context.Authenticator = authenticator;
+            internal static void SetAuthenticator(ConnectionContext context, IAuthenticator authenticator) => context.Authenticator = authenticator;
             
             [Impl(MethodImplOptions.AggressiveInlining)]
             internal static void SetData<T>(ConnectionContext context, T data) => context.Data = data;

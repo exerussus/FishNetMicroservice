@@ -6,7 +6,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client.Abstractions
     public abstract class Connector<T> : IConnector where T : struct, IBroadcast
     {
         private T _data;
-        
+
+        public T Data => _data;
+
         void IConnector.PreStartConnection()
         {
             OnPreStartConnection();

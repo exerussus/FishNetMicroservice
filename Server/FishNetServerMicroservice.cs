@@ -1,6 +1,8 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.DelayedActionsFeature;
 using Exerussus._1Extensions.LoopFeature;
@@ -12,6 +14,7 @@ using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Api;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Server.MonoBehaviours;
+using FishNet.Broadcast;
 using FishNet.Connection;
 using FishNet.Managing;
 using FishNet.Managing.Logging;
@@ -19,6 +22,7 @@ using FishNet.Managing.Server;
 using FishNet.Transporting;
 using FishNet.Transporting.Tugboat;
 using UnityEngine;
+using Channel = FishNet.Transporting.Channel;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
 {
@@ -35,7 +39,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         private Tugboat _tugboat;
         private NetworkManager _networkManager;
         private ServiceCustomAuthenticator _customAuthenticator;
-        private readonly Dictionary<Type, Authenticator.Handle> _authenticators = new ();
+        private readonly Dictionary<Type, AuthenticatorHandle> _authenticators = new ();
         
         private readonly Dictionary<int, ConnectionContext> _inProcess = new();
         private readonly Dictionary<int, ConnectionContext> _authenticated = new ();
@@ -132,9 +136,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             {
                 foreach (var (clientId, kickReason) in _kickList)
                 {
-                    if (_inProcess.TryGetValue(clientId, out var context))
+                    if (_inProcess.TryPop(clientId, out var context))
                     {
-                        _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(false));
+                        _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(false), false);
                     } 
                     else continue;
                     context.NetworkConnection.Kick(kickReason, LoggingType.Common, "Authentication timeout.");
@@ -153,7 +157,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                     _customAuthenticator.SetAuthResult(context.NetworkConnection, true);
                     context.Authenticator.OnAuthenticationSuccess(context);
                     
-                    _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(true));
+                    _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(true), false);
                 }
 
                 _approvedList.Clear();
@@ -183,7 +187,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             }
         }
 
-        private void InitializeAuthenticators(string address, ushort port, Authenticator[] authenticators)
+        private void InitializeAuthenticators(string address, ushort port, IAuthenticator[] authenticators)
         {
             if (_tugboat == null)
             {
@@ -199,10 +203,10 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 }
                 else
                 {
-                    var handle = new Authenticator.Handle(authenticator);
+                    var handle = new AuthenticatorHandle(authenticator);
                     _authenticators.Add(authenticator.GetType(), handle);
-                    handle.SetProcess(_inProcess, _serverManager);
-                    authenticator.Initialize();
+                    RegisterBroadcastInAuthenticator(authenticator, handle);
+                    authenticator.OnInitialize();
                 }
             }
 
@@ -222,13 +226,94 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             }
             else if (state.ConnectionState == LocalConnectionState.Stopped)
             {
-                foreach (var handle in _authenticators.Values) handle.Authenticator.Destroy();
+                foreach (var authenticator in _authenticators.Values)
+                {
+                    authenticator.Dispose?.Invoke();
+                    authenticator.Authenticator.OnDestroy();
+                }
                 _authenticators.Clear();
                 _inProcess.Clear();
                 _serverManager.OnServerConnectionState -= OnServerConnectionStateChanged;
                 _isStarted = false;
                 _isInitialized = false;
             }
+        }
+
+        private void RegisterBroadcastInAuthenticator(object instance, AuthenticatorHandle handle)
+        {
+            if (instance == null) throw new ArgumentNullException(nameof(instance));
+
+            var type = instance.GetType();
+
+            var pullerInterfaces = type.GetInterfaces()
+                .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IAuthenticator<>))
+                .Reverse();
+
+            var registerMethod = typeof(FishNetServerMicroservice).GetMethod(nameof(RegisterOnAuthData), BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            if (registerMethod == null) throw new InvalidOperationException("Метод RegisterOnAuthData не найден в FishNetServerMicroservice.");
+
+            foreach (var itf in pullerInterfaces)
+            {
+                var genericArg = itf.GetGenericArguments()[0];
+
+                if (!genericArg.IsValueType)
+                {
+                    Debug.LogError($"Authenticator generic type {genericArg} must be a struct (value type). Skipping.");
+                    continue;
+                }
+
+                if (!typeof(IBroadcast).IsAssignableFrom(genericArg))
+                {
+                    Debug.LogError($"Authenticator generic type {genericArg} must implement IBroadcast. Skipping.");
+                    continue;
+                }
+
+                try
+                {
+                    var closed = registerMethod.MakeGenericMethod(genericArg);
+                    closed.Invoke(this, new object[] { instance, handle });
+                }
+                catch (TargetInvocationException tie)
+                {
+                    Debug.LogError($"Failed to register authenticator for broadcast {genericArg}: {tie.InnerException?.Message}");
+                    Debug.LogException(tie.InnerException ?? tie);
+                }
+                catch (Exception ex)
+                {
+                    Debug.LogError($"Unexpected error registering authenticator for {genericArg}: {ex.Message}");
+                    Debug.LogException(ex);
+                }
+            }
+        }
+
+        internal void RegisterOnAuthData<T>(IAuthenticator<T> authenticator, AuthenticatorHandle handle) where T : struct, IBroadcast
+        {
+            Action<NetworkConnection, T, Channel> action = OnAuthData;
+            
+            _serverManager.RegisterBroadcast(action, false);
+            handle.Dispose = () => _serverManager.UnregisterBroadcast(action);
+            return;
+            
+            void OnAuthData(NetworkConnection connection, T data, Channel channel)
+            {            
+                if (!_inProcess.TryGetValue(connection.ClientId, out var context))
+                {
+                    connection.Kick(KickReason.Unset, LoggingType.Warning, "Authentication not found.");
+                    return;
+                }
+
+                ConnectionContext.Handle.SetAuthenticator(context, authenticator);
+                ConnectionContext.Handle.SetKickTime(context, authenticator.DataCheckTimeout + Time.time);
+            
+                CheckAsync(authenticator, context, data).Forget();
+            }
+        }
+
+        private async UniTask CheckAsync<T>(IAuthenticator<T> authenticator, ConnectionContext context, T data) where T : struct, IBroadcast
+        {
+            var result = await authenticator.OnDataCheck(context, data);
+            if (result) ConnectionContext.Handle.SetDataApproved(context, true);
+            else ConnectionContext.Handle.SetKickTime(context, 0f);
         }
 
         public enum ConnectionStart
