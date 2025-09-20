@@ -39,11 +39,15 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         private Tugboat _tugboat;
         private NetworkManager _networkManager;
         private ServiceCustomAuthenticator _customAuthenticator;
-        private readonly Dictionary<Type, AuthenticatorHandle> _authenticators = new ();
+        private readonly Dictionary<Type, GameHandle> _gameHandles = new ();
         
         private readonly Dictionary<int, ConnectionContext> _inProcess = new();
         private readonly Dictionary<int, ConnectionContext> _authenticated = new ();
         private readonly Dictionary<int, KickReason> _kickList = new();
+        private readonly Dictionary<long, Room> _rooms = new();
+        private readonly Dictionary<long, Room> _activatedRooms = new();
+        // roomId to Hashset of clients
+        private readonly Dictionary<long, HashSet<long>> _connectedClients = new();
         private readonly HashSet<int> _approvedList = new();
 
         private const float AuthenticationTimeout = 5f;
@@ -92,19 +96,19 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 return;
             }
             
-            if (channel.Authenticators == null)
+            if (channel.Pipelines == null)
             {
                 Debug.LogError("FishNetServerMicroservice | Authenticators is null");
                 return;
             }
             
-            if (channel.Authenticators.Length == 0)
+            if (channel.Pipelines.Length == 0)
             {
                 Debug.LogError("FishNetServerMicroservice | Authenticators is empty");
                 return;
             }
             
-            await ThreadGate.CreateJob(() => InitializeAuthenticators(channel.Address, channel.Port, channel.Authenticators)).Run().AsUniTask();
+            await ThreadGate.CreateJob(() => InitializeAuthenticators(channel.Address, channel.Port, channel.Pipelines)).Run().AsUniTask();
             await DelayedAction.Create(0.1f, () => { })
                 .WithCondition(() => _isInitialized && _isStarted)
                 .Run().AsUniTask();
@@ -156,11 +160,35 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                     ConnectionContext.Handle.SetAuthenticated(context, true);
                     _customAuthenticator.SetAuthResult(context.NetworkConnection, true);
                     context.Authenticator.OnAuthenticationSuccess(context);
-                    
                     _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(true), false);
+                    ProvideClientToRoom(context).Forget();
                 }
 
                 _approvedList.Clear();
+            }
+        }
+
+        private async UniTask ProvideClientToRoom(ConnectionContext context)
+        {
+            var roomId = await context.MatchMaker.GetRoomId(context);
+            
+            if (_rooms.ContainsKey(roomId))
+            {
+                var room = _rooms[roomId];
+                ConnectionContext.Handle.SetRoom(context, room);
+                if (_connectedClients.TryGetValue(roomId, out var clients) && clients.Contains(context.UserId))
+                {
+                    await context.Session.OnReconnection(context, room);
+                }
+                else await context.Session.OnNewConnection(context, room);
+            }
+            else
+            {
+                var room = new Room(roomId, _serverManager, this);
+                _rooms[roomId] = room;
+                ConnectionContext.Handle.SetRoom(context, room);
+                await context.Session.OnRoomCreated(room);
+                await context.Session.OnNewConnection(context, room);
             }
         }
         
@@ -187,7 +215,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             }
         }
 
-        private void InitializeAuthenticators(string address, ushort port, IAuthenticator[] authenticators)
+        private void InitializeAuthenticators(string address, ushort port, (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] pipelines)
         {
             if (_tugboat == null)
             {
@@ -195,16 +223,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 return;
             }
 
-            foreach (var authenticator in authenticators)
+            foreach (var (authenticator, matchMaker, session) in pipelines)
             {
-                if (_authenticators.ContainsKey(authenticator.GetType()))
+                if (_gameHandles.ContainsKey(authenticator.GetType()))
                 {
                     Debug.LogError($"FishNetServerMicroservice | Authenticator already exists for type {authenticator.GetType()}"); 
                 }
                 else
                 {
-                    var handle = new AuthenticatorHandle(authenticator);
-                    _authenticators.Add(authenticator.GetType(), handle);
+                    var handle = new GameHandle(authenticator, matchMaker, session);
+                    _gameHandles.Add(authenticator.GetType(), handle);
                     RegisterBroadcastInAuthenticator(authenticator, handle);
                     authenticator.OnInitialize();
                 }
@@ -226,12 +254,12 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             }
             else if (state.ConnectionState == LocalConnectionState.Stopped)
             {
-                foreach (var authenticator in _authenticators.Values)
+                foreach (var gameHandle in _gameHandles.Values)
                 {
-                    authenticator.Dispose?.Invoke();
-                    authenticator.Authenticator.OnDestroy();
+                    gameHandle.Dispose?.Invoke();
+                    gameHandle.Authenticator.OnDestroy();
                 }
-                _authenticators.Clear();
+                _gameHandles.Clear();
                 _inProcess.Clear();
                 _serverManager.OnServerConnectionState -= OnServerConnectionStateChanged;
                 _isStarted = false;
@@ -239,7 +267,17 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             }
         }
 
-        private void RegisterBroadcastInAuthenticator(object instance, AuthenticatorHandle handle)
+        internal void StartSession(long roomId)
+        {
+            throw new NotImplementedException();
+        }
+
+        internal void StopSession(long roomId)
+        {
+            throw new NotImplementedException();
+        }
+
+        private void RegisterBroadcastInAuthenticator(object instance, GameHandle handle)
         {
             if (instance == null) throw new ArgumentNullException(nameof(instance));
 
@@ -286,7 +324,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             }
         }
 
-        internal void RegisterOnAuthData<T>(IAuthenticator<T> authenticator, AuthenticatorHandle handle) where T : struct, IBroadcast
+        internal void RegisterOnAuthData<T>(IAuthenticator<T> authenticator, GameHandle handle) where T : struct, IBroadcast
         {
             Action<NetworkConnection, T, Channel> action = OnAuthData;
             
@@ -302,7 +340,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                     return;
                 }
 
-                ConnectionContext.Handle.SetAuthenticator(context, authenticator);
+                ConnectionContext.Handle.SetPipeline(context, authenticator, handle.MatchMaker, handle.Session);
                 ConnectionContext.Handle.SetKickTime(context, authenticator.DataCheckTimeout + Time.time);
             
                 CheckAsync(authenticator, context, data).Forget();

@@ -13,8 +13,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public long UserId { get; private set; }
         public NetworkConnection NetworkConnection { get; private set; }
         public IAuthenticator Authenticator { get; private set; }
+        public IMatchMaker MatchMaker { get; private set; }
+        public ISession Session { get; private set; }
         public Room Room { get; private set; }
         public bool IsAuthenticated { get; private set; }
+        public bool IsActive { get; private set; }
         public bool IsSessionStarted { get; private set; }
         public bool DataApproved { get; private set; }
         public float KickTime { get; private set; }
@@ -50,13 +53,21 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             internal static void SetNetworkConnection(ConnectionContext context, NetworkConnection networkConnection) => context.NetworkConnection = networkConnection;
             
             [Impl(MethodImplOptions.AggressiveInlining)]
-            internal static void SetAuthenticator(ConnectionContext context, IAuthenticator authenticator) => context.Authenticator = authenticator;
-            
+            internal static void SetPipeline(ConnectionContext context, IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)
+            {
+                context.Authenticator = authenticator;
+                context.MatchMaker = matchMaker;
+                context.Session = session;
+            }
+
             [Impl(MethodImplOptions.AggressiveInlining)]
             internal static void SetData<T>(ConnectionContext context, T data) => context.Data = data;
             
             [Impl(MethodImplOptions.AggressiveInlining)]
             internal static T GetData<T>(ConnectionContext context) => (T)context.Data;
+            
+            [Impl(MethodImplOptions.AggressiveInlining)]
+            internal static void SetActive(ConnectionContext context, bool isActive) => context.IsActive = isActive;
             
             [Impl(MethodImplOptions.AggressiveInlining)]
             internal static bool TryGetData<T>(ConnectionContext context, out T data)

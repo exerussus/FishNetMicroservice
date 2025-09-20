@@ -6,16 +6,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Api
 {
     public struct RunServer : IChannel
     {
-        public RunServer(string address, ushort port, IAuthenticator[] authenticators)
+        public RunServer(string address, ushort port, (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] pipelines)
         {
             Address = address;
             Port = port;
-            Authenticators = authenticators;
+            Pipelines = pipelines;
         }
 
         public readonly string Address;
         public readonly ushort Port;
-        public readonly IAuthenticator[] Authenticators;
+        public readonly (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] Pipelines;
     }
 
     public struct StartSession : IChannel
