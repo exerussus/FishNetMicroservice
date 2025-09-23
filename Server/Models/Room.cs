@@ -4,7 +4,6 @@ using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
 using FishNet.Broadcast;
 using FishNet.Connection;
 using FishNet.Managing.Server;
-using UnityEngine;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
@@ -23,20 +22,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         private readonly FishNetServerMicroservice _microservice;
         private readonly Dictionary<long, ConnectionContext> _allClients = new();
         internal readonly ISession Session;
-        public readonly HashSet<ConnectionContext> ActiveClients = new();
+        public Dictionary<long, ConnectionContext>.ValueCollection ActiveClients => _allClients.Values;
         public bool IsSessionStarted { get; private set; }
         public bool IsSessionDone { get; private set; }
         
         public long UniqRoomId => _uniqRoomId;
-        
-        private void UpdateActiveClients()
-        {
-            ActiveClients.Clear();
-            foreach (var (_, context) in _allClients)
-            {
-                if (context.IsActive && context.IsAuthenticated) ActiveClients.Add(context);
-            }
-        }
         
         internal void SetSessionStarted(bool isStarted)
         {
@@ -56,20 +46,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         internal void RemoveClient(ConnectionContext client)
         {
             _allClients.Remove(client.UserId);
-            UpdateActiveClients();
             if (_allClients.Count == 0) StopSession().Forget();
-        }
-
-        internal void SetClientActive(ConnectionContext client, bool isActive)
-        {
-            if (!_allClients.ContainsKey(client.UserId))
-            {
-                Debug.LogError($"Room {UniqRoomId} doesn't have client {client.UserId}!");
-                return;
-            }
-            
-            ConnectionContext.Handle.SetActive(client, isActive);
-            UpdateActiveClients();
         }
 
         public async UniTask StartSession()

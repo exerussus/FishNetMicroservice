@@ -210,7 +210,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                     _customAuthenticator.SetAuthResult(context.NetworkConnection, true);
                     context.Authenticator.OnAuthenticationSuccess(context);
                     _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(true), false);
-                    ConnectionContext.Handle.SetActive(context, true);
                     ProvideClientToRoom(context, false).Forget();
                 }
 
@@ -233,7 +232,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 else
                 {
                     context.Room.AddClient(context);
-                    context.Room.SetClientActive(context, true);
                     if (isReconnected) await context.Session.OnReconnection(context, room);
                     else await context.Session.OnNewConnection(context, room);
                 }
@@ -244,7 +242,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 _rooms[roomId] = room;
                 ConnectionContext.Handle.SetRoom(context, room);
                 context.Room.AddClient(context);
-                context.Room.SetClientActive(context, true);
                 await context.Session.OnRoomCreated(room);
                 await context.Session.OnNewConnection(context, room);
             }
