@@ -5,10 +5,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
 {
     public interface ISession
     {
-        /// <summary> Задержка между проверками готовности. </summary>
-        public abstract float ReadyToStartCheckUpdateDelay { get; }
-        /// <summary> Задержка между проверками на окончание игры. </summary>
-        public abstract float GameOverCheckUpdateDelay { get; }
         /// <summary> Максимальное время ожидание клиента перед киком после потери соединения. </summary>
         public abstract float MaxTimeOut { get; }
         
@@ -26,9 +22,5 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
         public UniTask OnSessionStarted(Room room);
         /// <summary> Конец игровой сессии. </summary>
         public UniTask OnSessionStopped(Room room);
-        /// <summary> Проверка на готовность стартовать сессию. </summary>
-        public UniTask<bool> IsReadyToStart();
-        /// <summary> Проверка на завершение сессии. </summary>
-        public UniTask<bool> IsGameOver();
     }
 }

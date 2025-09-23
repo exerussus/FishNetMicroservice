@@ -30,12 +30,12 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
     [RequireComponent(typeof(NetworkManager))]
     public class FishNetServerMicroservice : MonoBehaviour,
         IService,
-        IChannelPuller<RunServer>,
-        IChannelPuller<StartSession>
+        IChannelPuller<RunServer>
     {
         public ConnectionStart startType;
         public ServiceHandle Handle { get; set; }
         private ServerManager _serverManager;
+        private ServerSettings _serverSettings;
         private Tugboat _tugboat;
         private NetworkManager _networkManager;
         private ServiceCustomAuthenticator _customAuthenticator;
@@ -45,7 +45,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         private readonly Dictionary<int, ConnectionContext> _authenticated = new ();
         private readonly Dictionary<int, KickReason> _kickList = new();
         private readonly Dictionary<long, Room> _rooms = new();
-        private readonly Dictionary<long, Room> _activatedRooms = new();
+        private readonly Dictionary<long, Room> _startedRooms = new();
         // roomId to Hashset of clients
         private readonly Dictionary<long, HashSet<long>> _connectedClients = new();
         private readonly HashSet<int> _approvedList = new();
@@ -96,32 +96,81 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 return;
             }
             
-            if (channel.Pipelines == null)
+            if (channel.Settings.Pipelines == null)
             {
                 Debug.LogError("FishNetServerMicroservice | Authenticators is null");
                 return;
             }
             
-            if (channel.Pipelines.Length == 0)
+            if (channel.Settings.Pipelines.Length == 0)
             {
                 Debug.LogError("FishNetServerMicroservice | Authenticators is empty");
                 return;
             }
             
-            await ThreadGate.CreateJob(() => InitializeAuthenticators(channel.Address, channel.Port, channel.Pipelines)).Run().AsUniTask();
+            await ThreadGate.CreateJob(() => InitializeAuthenticators(channel.Settings)).Run().AsUniTask();
             await DelayedAction.Create(0.1f, () => { })
                 .WithCondition(() => _isInitialized && _isStarted)
                 .Run().AsUniTask();
         }
 
-        public UniTask PullBroadcast(StartSession channel)
+        internal async UniTask StartSession(long roomId)
         {
-            _serverManager.Broadcast(new SessionStateChanged(true));
-            return UniTask.CompletedTask;
+            if (!_rooms.TryGetValue(roomId, out var room))
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} not found.");
+                return;
+            }
+
+            if (room.IsSessionStarted)
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} already started.");
+                return;
+            }
+            
+            if (room.IsSessionDone)
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} already stopped.");
+                return;
+            }
+            
+            room.SetSessionStarted(true);
+            room.Broadcast(new SessionStateChanged(true));
+            
+            Debug.Log($"FishNetServerMicroservice | Starting session for room {roomId}");
+            await room.Session.OnSessionStarted(room);
+        }
+
+        internal async UniTask StopSession(long roomId)
+        {
+            if (!_rooms.TryGetValue(roomId, out var room))
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} not found.");
+                return;
+            }
+
+            if (!room.IsSessionStarted)
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} not started.");
+                return;
+            }
+            
+            if (room.IsSessionDone)
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} already stopped.");
+                return;
+            }
+            
+            room.SetSessionDone(true);
+            room.Broadcast(new SessionStateChanged(false));
+            await room.Session.OnSessionStopped(room);
+            _rooms.Remove(room.UniqRoomId);
         }
         
         public void Update()
         {
+            var time = Time.time;
+            
             foreach (var (clientId, context) in _inProcess)
             {
                 if (context.DataApproved)
@@ -130,7 +179,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                     continue;
                 }
                 
-                if (context.KickTime < Time.time)
+                if (context.KickTime < time)
                 {
                     _kickList.Add(clientId, KickReason.UnusualActivity);
                 }
@@ -161,14 +210,15 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                     _customAuthenticator.SetAuthResult(context.NetworkConnection, true);
                     context.Authenticator.OnAuthenticationSuccess(context);
                     _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(true), false);
-                    ProvideClientToRoom(context).Forget();
+                    ConnectionContext.Handle.SetActive(context, true);
+                    ProvideClientToRoom(context, false).Forget();
                 }
 
                 _approvedList.Clear();
             }
         }
 
-        private async UniTask ProvideClientToRoom(ConnectionContext context)
+        private async UniTask ProvideClientToRoom(ConnectionContext context, bool isReconnected)
         {
             var roomId = await context.MatchMaker.GetRoomId(context);
             
@@ -180,13 +230,21 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 {
                     await context.Session.OnReconnection(context, room);
                 }
-                else await context.Session.OnNewConnection(context, room);
+                else
+                {
+                    context.Room.AddClient(context);
+                    context.Room.SetClientActive(context, true);
+                    if (isReconnected) await context.Session.OnReconnection(context, room);
+                    else await context.Session.OnNewConnection(context, room);
+                }
             }
             else
             {
-                var room = new Room(roomId, _serverManager, this);
+                var room = new Room(roomId, context.Session, _serverManager, this);
                 _rooms[roomId] = room;
                 ConnectionContext.Handle.SetRoom(context, room);
+                context.Room.AddClient(context);
+                context.Room.SetClientActive(context, true);
                 await context.Session.OnRoomCreated(room);
                 await context.Session.OnNewConnection(context, room);
             }
@@ -211,19 +269,26 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 if (_authenticated.TryPop(connection.ClientId, out context))
                 {
                     context.Authenticator.OnAuthenticatedClientDisconnected(context);
+                    if (context.Room != null)
+                    {
+                        context.Room.RemoveClient(context);
+                        if (context.Session != null) context.Session.OnDisconnection(context, context.Room);
+                    }
                 }
             }
         }
 
-        private void InitializeAuthenticators(string address, ushort port, (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] pipelines)
+        private void InitializeAuthenticators(ServerSettings settings)
         {
+            _serverSettings = settings;
+            
             if (_tugboat == null)
             {
                 Debug.LogError("FishNetServerMicroservice | Tugboat is null. Please add Tugboat to the same GameObject as ServerManager.");
                 return;
             }
 
-            foreach (var (authenticator, matchMaker, session) in pipelines)
+            foreach (var (authenticator, matchMaker, session) in _serverSettings.Pipelines)
             {
                 if (_gameHandles.ContainsKey(authenticator.GetType()))
                 {
@@ -238,8 +303,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 }
             }
 
-            _tugboat.SetClientAddress(address);
-            _tugboat.SetPort(port);
+            _tugboat.SetClientAddress(settings.Address);
+            _tugboat.SetPort(settings.Port);
             _serverManager.OnServerConnectionState += OnServerConnectionStateChanged;
             _serverManager.StartConnection();
             
@@ -261,20 +326,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 }
                 _gameHandles.Clear();
                 _inProcess.Clear();
+                if (_serverSettings != null)
+                {
+                    _serverSettings.OnServerStopped?.Invoke();
+                    _serverSettings.OnServerStopped = null;
+                    _serverSettings = null;
+                }
                 _serverManager.OnServerConnectionState -= OnServerConnectionStateChanged;
                 _isStarted = false;
                 _isInitialized = false;
             }
-        }
-
-        internal void StartSession(long roomId)
-        {
-            throw new NotImplementedException();
-        }
-
-        internal void StopSession(long roomId)
-        {
-            throw new NotImplementedException();
         }
 
         private void RegisterBroadcastInAuthenticator(object instance, GameHandle handle)

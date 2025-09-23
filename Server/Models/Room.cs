@@ -1,4 +1,6 @@
 ﻿using System.Collections.Generic;
+using Cysharp.Threading.Tasks;
+using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
 using FishNet.Broadcast;
 using FishNet.Connection;
 using FishNet.Managing.Server;
@@ -8,26 +10,54 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
     public class Room
     {
-        internal Room(long uniqRoomId, ServerManager serverManager, FishNetServerMicroservice microservice)
+        internal Room(long uniqRoomId, ISession session, ServerManager serverManager, FishNetServerMicroservice microservice)
         {
             _uniqRoomId = uniqRoomId;
             _serverManager = serverManager;
             _microservice = microservice;
+            Session = session;
         }
 
         private readonly long _uniqRoomId;
         private readonly ServerManager _serverManager;
         private readonly FishNetServerMicroservice _microservice;
         private readonly Dictionary<long, ConnectionContext> _allClients = new();
-        public readonly List<ConnectionContext> ActiveClients = new();
+        internal readonly ISession Session;
+        public readonly HashSet<ConnectionContext> ActiveClients = new();
         public bool IsSessionStarted { get; private set; }
         public bool IsSessionDone { get; private set; }
         
         public long UniqRoomId => _uniqRoomId;
-
+        
+        private void UpdateActiveClients()
+        {
+            ActiveClients.Clear();
+            foreach (var (_, context) in _allClients)
+            {
+                if (context.IsActive && context.IsAuthenticated) ActiveClients.Add(context);
+            }
+        }
+        
+        internal void SetSessionStarted(bool isStarted)
+        {
+            IsSessionStarted = isStarted;
+        }
+        
+        internal void SetSessionDone(bool isDone)
+        {
+            IsSessionDone = isDone;
+        }
+        
         internal void AddClient(ConnectionContext client)
         {
             _allClients.Add(client.UserId, client);
+        }
+        
+        internal void RemoveClient(ConnectionContext client)
+        {
+            _allClients.Remove(client.UserId);
+            UpdateActiveClients();
+            if (_allClients.Count == 0) StopSession().Forget();
         }
 
         internal void SetClientActive(ConnectionContext client, bool isActive)
@@ -39,21 +69,22 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             }
             
             ConnectionContext.Handle.SetActive(client, isActive);
+            UpdateActiveClients();
         }
 
-        public void StartSession()
+        public async UniTask StartSession()
         {
-            IsSessionStarted = true;
+            await _microservice.StartSession(_uniqRoomId);
         }
         
-        public void StopSession()
+        public async UniTask StopSession()
         {
-            IsSessionDone = true;
+            await _microservice.StopSession(_uniqRoomId);
         }
 
         public void Broadcast<T>(T broadcast) where T : struct, IBroadcast
         {
-            foreach (var client in _allClients.Values)
+            foreach (var client in ActiveClients)
             {
                 _serverManager.Broadcast(client, broadcast);
             }
@@ -61,7 +92,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
         public void BroadcastExcept<T>(NetworkConnection connection, T broadcast) where T : struct, IBroadcast
         {
-            foreach (var client in _allClients.Values)
+            foreach (var client in ActiveClients)
             {
                 if (connection.ClientId == client.NetworkConnection.ClientId) continue;
                 _serverManager.Broadcast(client, broadcast);

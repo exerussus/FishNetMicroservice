@@ -1,25 +1,16 @@
 ﻿
 using Exerussus._1Extensions.MicroserviceFeature;
-using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
+using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Api
 {
     public struct RunServer : IChannel
     {
-        public RunServer(string address, ushort port, (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] pipelines)
+        public RunServer(ServerSettings settings)
         {
-            Address = address;
-            Port = port;
-            Pipelines = pipelines;
+            Settings = settings;
         }
 
-        public readonly string Address;
-        public readonly ushort Port;
-        public readonly (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] Pipelines;
-    }
-
-    public struct StartSession : IChannel
-    {
-        
+        public readonly ServerSettings Settings;
     }
 }
