@@ -3,32 +3,43 @@ using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
 {
-    public interface ISession
+    public interface ISession<TConnection, TRoom> : ISession 
+        where TConnection : PlayerContext, new()
+        where TRoom : Room<TConnection>, new()
     {
-        /// <summary> Задержка между проверками готовности. </summary>
-        public abstract float ReadyToStartCheckUpdateDelay { get; }
-        /// <summary> Задержка между проверками на окончание игры. </summary>
-        public abstract float GameOverCheckUpdateDelay { get; }
-        /// <summary> Максимальное время ожидание клиента перед киком после потери соединения. </summary>
+        /// <summary> Максимальное время ожидания комнаты при отсутствии игроков без окончания сессии. </summary>
         public abstract float MaxTimeOut { get; }
+        /// <summary> Кикать ли немедленно игроков при окончании сессии. </summary>
+        public abstract bool KickOnSessionStop { get; }
         
         /// <summary> Вызывается при создании новой комнаты. </summary>
-        public UniTask OnRoomCreated(Room room); 
+        public virtual UniTask OnRoomCreated(TRoom room) { return UniTask.CompletedTask; }
+        
         /// <summary> Добавление нового подключения </summary>
-        public UniTask OnNewConnection(ConnectionContext context, Room room);
-        /// <summary> Потеря соединения с клиентом без явного отключения, или кика. </summary>
-        public UniTask OnConnectionLost(ConnectionContext context, Room room);
-        /// <summary> Переподключение клиента после потери соединения. </summary>
-        public UniTask OnReconnection(ConnectionContext context, Room room);
-        /// <summary> Явное отключение клиента при выходе, или кике. </summary>
-        public UniTask OnDisconnection(ConnectionContext context, Room room);
+        public virtual UniTask OnNewConnection(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+
+        /// <summary> Отключение игрока до старта сессии. </summary>
+        public virtual UniTask OnDisconnectionBeforeStart(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+
+        /// <summary> Отключение игрока во время сессии. </summary>
+        public virtual UniTask OnDisconnectionWhileProcess(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+
+        /// <summary> Отключение игрока во время окончания сессии. </summary>
+        public virtual UniTask OnDisconnectionAfterStop(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+        
         /// <summary> Старт игровой сессии. </summary>
-        public UniTask OnSessionStarted(Room room);
+        public virtual UniTask OnSessionStarted(TRoom room) { return UniTask.CompletedTask; }
         /// <summary> Конец игровой сессии. </summary>
-        public UniTask OnSessionStopped(Room room);
-        /// <summary> Проверка на готовность стартовать сессию. </summary>
-        public UniTask<bool> IsReadyToStart();
-        /// <summary> Проверка на завершение сессии. </summary>
-        public UniTask<bool> IsGameOver();
+        public virtual UniTask OnSessionStopped(TRoom room) { return UniTask.CompletedTask; }
+        /// <summary> Отмена игровой сессии. </summary>
+        public virtual UniTask OnSessionCancelled(TRoom room) { return UniTask.CompletedTask; }
+        /// <summary> Закрытие игровой сессии по любой причине. </summary>
+        public virtual UniTask OnSessionClose(TRoom room) { return UniTask.CompletedTask; }
+    }
+
+    public interface ISession
+    {
+        public virtual void OnInitialize() {}
+        public virtual void OnDestroy() {}
     }
 }

@@ -95,6 +95,12 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
                 return;
             }
 
+            if (_isConnectionStarted)
+            {
+                Debug.LogWarning($"FishNetClientMicroservice | Connector already started with connector {_currentConnector.GetType()}.");
+                return;
+            }
+            
             _isConnectionStarted = false;
             _isSessionStarted = false;
             _isStopClient = false;
