@@ -1,11 +1,10 @@
 ﻿using System;
-using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
     public class ServerSettings
     {
-        public ServerSettings(string address, ushort port, (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] pipelines)
+        public ServerSettings(string address, ushort port, IPipeline[] pipelines)
         {
             Address = address;
             Port = port;
@@ -14,7 +13,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
         public readonly string Address;
         public readonly ushort Port;
-        public readonly (IAuthenticator authenticator, IMatchMaker matchMaker, ISession session)[] Pipelines;
+        public readonly IPipeline[] Pipelines;
         public Action OnServerStopped;
     }
 }

@@ -1,31 +1,31 @@
 ﻿using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
-using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
 using FishNet.Broadcast;
 using FishNet.Connection;
 using FishNet.Managing.Server;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
-    public class Room
+    public abstract class Room<TConnection> : IRoom where TConnection : PlayerContext, new()
     {
-        internal Room(long uniqRoomId, ISession session, ServerManager serverManager, FishNetServerMicroservice microservice)
+        internal void SetRoomRefs(long uniqRoomId, ServerManager serverManager, IPipeline pipeline)
         {
             _uniqRoomId = uniqRoomId;
             _serverManager = serverManager;
-            _microservice = microservice;
-            Session = session;
+            _pipeline = pipeline;
         }
 
-        private readonly long _uniqRoomId;
-        private readonly ServerManager _serverManager;
-        private readonly FishNetServerMicroservice _microservice;
-        private readonly Dictionary<long, ConnectionContext> _allClients = new();
-        internal readonly ISession Session;
-        public Dictionary<long, ConnectionContext>.ValueCollection ActiveClients => _allClients.Values;
-        public bool IsSessionStarted { get; private set; }
-        public bool IsSessionDone { get; private set; }
+        private long _uniqRoomId;
+        private ServerManager _serverManager;
+        private IPipeline _pipeline;
+        private readonly Dictionary<long, TConnection> _allClients = new();
+
+        internal float SessionStopTime;
         
+        public Dictionary<long, TConnection>.ValueCollection ActiveClients => _allClients.Values;
+        public bool IsSessionStarted { get; private set; }
+        public bool IsSessionCancelled { get; private set; }
+        public bool IsSessionDone { get; private set; }
         public long UniqRoomId => _uniqRoomId;
         
         internal void SetSessionStarted(bool isStarted)
@@ -38,25 +38,29 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             IsSessionDone = isDone;
         }
         
-        internal void AddClient(ConnectionContext client)
+        internal void SetSessionCancelled(bool isCancelled)
+        {
+            IsSessionCancelled = isCancelled;
+        }
+        
+        internal void AddClient(TConnection client)
         {
             _allClients.Add(client.UserId, client);
         }
         
-        internal void RemoveClient(ConnectionContext client)
+        internal void RemoveClient(TConnection client)
         {
             _allClients.Remove(client.UserId);
-            if (_allClients.Count == 0) StopSession().Forget();
         }
 
         public async UniTask StartSession()
         {
-            await _microservice.StartSession(_uniqRoomId);
+            await _pipeline.StartSession(_uniqRoomId);
         }
         
         public async UniTask StopSession()
         {
-            await _microservice.StopSession(_uniqRoomId);
+            await _pipeline.StopSession(_uniqRoomId);
         }
 
         public void Broadcast<T>(T broadcast) where T : struct, IBroadcast
@@ -75,5 +79,10 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 _serverManager.Broadcast(client, broadcast);
             }
         }
+    }
+
+    public interface IRoom
+    {
+        
     }
 }
