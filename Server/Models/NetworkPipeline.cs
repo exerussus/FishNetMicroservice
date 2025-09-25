@@ -77,10 +77,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         private void OnAuthData(NetworkConnection connection, TAuthenticatorData data, Channel channel)
         {
-            Debug.Log($"OnAuthData 1");
             if (!_fishNetServerMicroservice.AwaitingAuthenticators.TryPop(connection.ClientId, out var process)) return;
             
-            Debug.Log($"OnAuthData 2");
             _fishNetServerMicroservice.SegregatedClients.Add(connection.ClientId, this);
             
             var context = new AuthenticationContext<TAuthenticatorData>
