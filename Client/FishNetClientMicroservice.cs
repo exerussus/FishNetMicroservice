@@ -48,7 +48,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             if (startType == ConnectionStart.Start) InitializeService();
         }
 
-        private void InitializeService()
+        public void InitializeService()
         {
             if (_isStarted) return;
             

@@ -62,7 +62,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             ExerussusLoopHelper.OnUpdate -= Update;
         }
 
-        private void InitializeService()
+        public void InitializeService()
         {
             if (_isStarted) return;
             
