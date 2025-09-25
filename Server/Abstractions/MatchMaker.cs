@@ -8,7 +8,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
     {
         /// <summary> Распределение клиента по комнатам. </summary>
         public UniTask<TConnection> CreatePlayerContext(long userId);
-        public UniTask<long> GetRoomId(PlayerContext context);
+        public UniTask<long> GetRoomId(TConnection context);
     }
     
     public interface IMatchMaker

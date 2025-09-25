@@ -9,83 +9,49 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client.Abstractions
 
         public T Data => _data;
 
-        void IConnector.PreStartConnection()
-        {
-            OnPreStartConnection();
-        }
-
         void IConnector.PushBroadcast(ClientManager clientManager)
         {
             clientManager.Broadcast(_data);
         }
         
-        void IConnector.StartConnection()
-        {
-            OnStartConnection();
-        }
-        
-        void IConnector.EndConnection()
-        {
-            OnEndConnection();
-        }
-        
-        void IConnector.AuthenticateSuccess()
-        {
-            OnAuthenticateSuccess();
-        }
-        
-        void IConnector.AuthenticateFailed()
-        {
-            OnAuthenticateFailed();
-        }
-        
-        void IConnector.SessionStarted()
-        {
-            OnSessionStarted();
-        }
-        
-        void IConnector.SessionEnded()
-        {
-            OnSessionEnded();
-        }
-
         /// <summary> Устанавливает данные для авторизации. </summary>
         public void SetAuthData(T data)
         {
             _data = data;
         }
-
+        
         /// <summary> Вызывается перед подключением. </summary>
-        protected abstract void OnPreStartConnection();
-        
+        public virtual void PreStartConnection() {}
         /// <summary> Вызывается при подключении, но до авторизации. </summary>
-        protected abstract void OnStartConnection();
-        
+        public virtual void StartConnection() {}
         /// <summary> Вызывается при завершении подключения, независимо от авторизации и сессии. </summary>
-        protected abstract void OnEndConnection();
-        
+        public virtual void EndConnection() {}
         /// <summary> Вызывается при успешной авторизации, но до старта сессии. </summary>
-        protected abstract void OnAuthenticateSuccess();
-        
+        public virtual void AuthenticateSuccess() {}
         /// <summary> Вызывается при неудачной авторизации. </summary>
-        protected abstract void OnAuthenticateFailed();
-        
+        public virtual void AuthenticateFailed() {}
         /// <summary> Вызывается при начале сессии. </summary>
-        protected abstract void OnSessionStarted();
-        
+        public virtual void SessionStarted() {}
         /// <summary> Вызывается при завершении сессии. </summary>
-        protected abstract void OnSessionEnded();
+        public virtual void SessionEnded() {}
     }
     
     public interface IConnector
     {
-        internal void PreStartConnection();
-        internal void StartConnection();
-        internal void EndConnection();
-        internal void AuthenticateSuccess();
-        internal void AuthenticateFailed();
-        internal void SessionStarted();
-        internal void SessionEnded();
+        /// <summary> Вызывается перед подключением. </summary>
+        public virtual void PreStartConnection() {}
+        /// <summary> Вызывается при подключении, но до авторизации. </summary>
+        public virtual void StartConnection() {}
+        /// <summary> Вызывается при завершении подключения, независимо от авторизации и сессии. </summary>
+        public virtual void EndConnection() {}
+        /// <summary> Вызывается при успешной авторизации, но до старта сессии. </summary>
+        public virtual void AuthenticateSuccess() {}
+        /// <summary> Вызывается при неудачной авторизации. </summary>
+        public virtual void AuthenticateFailed() {}
+        /// <summary> Вызывается при начале сессии. </summary>
+        public virtual void SessionStarted() {}
+        /// <summary> Вызывается при завершении сессии. </summary>
+        public virtual void SessionEnded() {}
         internal void PushBroadcast(ClientManager clientManager);
     }
 }
