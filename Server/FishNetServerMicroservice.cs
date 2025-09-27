@@ -1,9 +1,9 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.DelayedActionsFeature;
-using Exerussus._1Extensions.LoopFeature;
 using Exerussus._1Extensions.Scripts.Extensions;
 using Exerussus._1Extensions.ThreadGateFeature;
 using Exerussus.Microservices.Runtime;
@@ -59,9 +59,14 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         private void OnDestroy()
         {
             ServerManager.OnRemoteConnectionState -= OnConnectionStateChanged;
-            ExerussusLoopHelper.OnUpdate -= Update;
         }
 
+        public async UniTask InitializeAndRunServer(ServerSettings settings)
+        {
+            await ThreadGate.CreateJob(InitializeService).Run().AsUniTask();
+            await PullBroadcast(new RunServer(settings));
+        }
+        
         public void InitializeService()
         {
             if (_isStarted) return;
@@ -69,11 +74,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             _isStarted = true;
             ServerManager = gameObject.GetComponent<ServerManager>();
             Tugboat = gameObject.GetComponent<Tugboat>();
-            CustomAuthenticator = gameObject.GetComponent<ServiceCustomAuthenticator>();
+            CustomAuthenticator = gameObject.TryGetComponent<ServiceCustomAuthenticator>(out var customAuth) ? customAuth : gameObject.AddComponent<ServiceCustomAuthenticator>();
             NetworkManager = gameObject.GetComponent<NetworkManager>();
             ServerManager.OnRemoteConnectionState += OnConnectionStateChanged;
-            ExerussusLoopHelper.OnUpdate -= Update;
-            ExerussusLoopHelper.OnUpdate += Update;
             
             MicroservicesApi.RegisterService(this);
         }
