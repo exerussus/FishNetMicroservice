@@ -20,7 +20,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         where TPlayerContext : PlayerContext, new()
         where TRoom : Room<TPlayerContext>, new()
         where TAuthenticator : IAuthenticator<TAuthenticatorData>, new()
-        where TMatchMaker : IMatchMaker<TPlayerContext>, new()
+        where TMatchMaker : IMatchMaker<TPlayerContext, TRoom>, new()
         where TSession : ISession<TPlayerContext, TRoom>, new()
     {
         public NetworkPipeline(TAuthenticator authenticator = default, TMatchMaker matchMaker = default, TSession session = default)
@@ -191,6 +191,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
             await _session.OnSessionClose(room);
             Rooms.Remove(room.UniqRoomId);
+            await _matchMaker.OnRoomDestroy(room);
         }
 
         public void Update(float time)
@@ -265,7 +266,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 
                 _emptyRoomsToClear.Clear();
             }
-            
         }
 
         private async UniTask ProvideClientToRoom(AuthenticationContext<TAuthenticatorData> authContext)
@@ -275,18 +275,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             Debug.Log($"Игрок {authContext.UserId} авторизован");
             PlayerContext.Handle.SetUserId(playerContext, authContext.UserId);
             PlayerContext.Handle.SetNetworkConnection(playerContext, authContext.NetworkConnection);
-            var roomId = await _matchMaker.GetRoomId(playerContext);
+            var (isNewRoom, roomId, room) = await _matchMaker.GetRoomId(playerContext);
             
-            if (Rooms.ContainsKey(roomId))
+            if (!isNewRoom)
             {
-                var room = Rooms[roomId];
                 PlayerContext.Handle.SetRoom(playerContext, roomId);
                 room.AddClient(playerContext);
                 await _session.OnNewConnection(playerContext, room);
             }
             else
             {
-                var room = new TRoom();
                 room.SetRoomRefs(roomId, _serverManager, this);
                 Rooms[roomId] = room;
                 PlayerContext.Handle.SetRoom(playerContext, roomId);
