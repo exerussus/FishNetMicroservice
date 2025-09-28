@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.Scripts.Extensions;
+using Exerussus._1Extensions.SignalSystem;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Global.Broadcasts;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Server.MonoBehaviours;
@@ -41,6 +42,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
         private readonly Dictionary<int, AuthenticationContext<TAuthenticatorData, TMetaData>> _inProcess = new();
         private readonly Dictionary<int, TPlayerContext> _authenticated = new ();
+        private readonly Dictionary<int, IRoom> _roomsByNetworkConnectionId = new ();
         private readonly Dictionary<int, KickReason> _kickList = new();
         private readonly HashSet<int> _approvedList = new();
         private readonly HashSet<long> _emptyRooms = new();
@@ -53,6 +55,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public IMatchMaker MatchMaker => _matchMaker;
         public ISession Session => _session;
         
+        public bool TryGetRoom(NetworkConnection connection, out IRoom room)
+        {
+            return _roomsByNetworkConnectionId.TryGetValue(connection.ClientId, out room);
+        }
+
         public void Initialize(FishNetServerMicroservice fishNetMicroService)
         {
             _authenticator ??= new TAuthenticator();
@@ -286,6 +293,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             if (!isNewRoom)
             {
                 PlayerContext<TMetaData>.Handle.SetRoom(playerContext, roomId);
+                _roomsByNetworkConnectionId[authContext.NetworkConnection.ClientId] = room;
                 room.AddClient(playerContext);
                 await _session.OnNewConnection(playerContext, room);
             }
@@ -303,6 +311,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public void OnConnectionStateChanged(NetworkConnection connection, RemoteConnectionStateArgs data)
         {
             if (data.ConnectionState != RemoteConnectionState.Stopped) return;
+            
+            _roomsByNetworkConnectionId.Remove(connection.ClientId);
             
             if (_inProcess.TryPop(connection.ClientId, out _))
             {
@@ -358,5 +368,18 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public IAuthenticator Authenticator { get; }
         public IMatchMaker MatchMaker { get; }
         public ISession Session { get; }
+        public bool TryGetRoom(NetworkConnection connection, out IRoom room);
+    }
+
+    public static class PipelineExtensions
+    {
+        public static ServerRelay CreateServerRelay(this IPipeline pipeline, Signal globalSignal, ServerManager serverManager, bool isLogsEnabled = false)
+        {
+            return new ServerRelay(globalSignal, serverManager, pipeline, isLogsEnabled);
+        }
+        public static ObserverRelay CreateObserverRelay(this IPipeline pipeline, Signal globalSignal, ServerManager serverManager, bool isLogsEnabled = false)
+        {
+            return new ObserverRelay(globalSignal, serverManager, pipeline, isLogsEnabled);
+        }
     }
 }

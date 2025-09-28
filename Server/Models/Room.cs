@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Cysharp.Threading.Tasks;
+using Exerussus._1Extensions.SignalSystem;
 using FishNet.Broadcast;
 using FishNet.Connection;
 using FishNet.Managing.Server;
@@ -27,6 +28,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public bool IsSessionStarted { get; private set; }
         public bool IsSessionCancelled { get; private set; }
         public bool IsSessionDone { get; private set; }
+        public Signal Signal { get; } = new();
         public long UniqRoomId => _uniqRoomId;
         
         internal void SetSessionStarted(bool isStarted)
@@ -94,6 +96,15 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
     public interface IRoom
     {
-        
+        public Signal Signal { get; } 
+        public long UniqRoomId { get; }
+        public bool IsSessionStarted { get; }
+        public bool IsSessionCancelled { get; }
+        public bool IsSessionDone { get; }
+        public UniTask StartSession();
+        public UniTask StopSession();
+        public void Broadcast<T>(T broadcast) where T : struct, IBroadcast;
+        public void Broadcast<T>(NetworkConnection connection, T broadcast) where T : struct, IBroadcast;
+        public void BroadcastExcept<T>(NetworkConnection connection, T broadcast) where T : struct, IBroadcast;
     }
 }
