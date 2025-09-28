@@ -13,4 +13,14 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Api
 
         public readonly ServerSettings Settings;
     }
+
+    public readonly struct OnServerStateChanged : IChannel
+    {
+        public OnServerStateChanged(bool isActive)
+        {
+            IsActive = isActive;
+        }
+
+        public readonly bool IsActive;
+    }
 }

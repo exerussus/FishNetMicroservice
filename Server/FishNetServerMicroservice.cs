@@ -1,7 +1,6 @@
 ﻿
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.DelayedActionsFeature;
 using Exerussus._1Extensions.Scripts.Extensions;
@@ -24,7 +23,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
     [RequireComponent(typeof(NetworkManager))]
     public class FishNetServerMicroservice : MonoBehaviour,
         IService,
-        IChannelPuller<RunServer>
+        IChannelPuller<RunServer>,
+        IChannelPusher<OnServerStateChanged>
     {
         public ConnectionStart startType;
         public ServiceHandle Handle { get; set; }
@@ -181,6 +181,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             if (state.ConnectionState == LocalConnectionState.Started)
             {
                 _isStarted = true;
+                Handle.Push(new OnServerStateChanged(true)).Forget();
             }
             else if (state.ConnectionState == LocalConnectionState.Stopped)
             {
@@ -199,6 +200,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 ServerManager.OnServerConnectionState -= OnServerConnectionStateChanged;
                 _isStarted = false;
                 _isInitialized = false;
+                Handle.Push(new OnServerStateChanged(false)).Forget();
             }
         }
 

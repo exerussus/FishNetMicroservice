@@ -1,6 +1,6 @@
 {
   "name": "com.exerussus.microservice.modules.fishnet",
-  "version": "1.0.14",
+  "version": "1.0.15",
   "displayName": "FishNet Microservice",
   "description": "Микро-сервис предоставляющий аутентификацию, матч-мэйкинг и управление сессией клиентов через FishNet.",
   "unity": "2020.3",
