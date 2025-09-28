@@ -77,6 +77,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             }
         }
 
+        public void Broadcast<T>(NetworkConnection connection, T broadcast) where T : struct, IBroadcast
+        {
+            _serverManager.Broadcast(connection, broadcast);
+        }
+
         public void BroadcastExcept<T>(NetworkConnection connection, T broadcast) where T : struct, IBroadcast
         {
             foreach (var client in ActiveClients)
