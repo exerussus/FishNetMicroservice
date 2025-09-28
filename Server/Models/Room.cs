@@ -21,6 +21,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         private ServerManager _serverManager;
         private IPipeline _pipeline;
         private readonly Dictionary<long, TConnection> _allClients = new();
+        private readonly Dictionary<int, TConnection> _allClientsByConnectionId = new();
 
         internal float SessionStopTime;
         
@@ -49,11 +50,13 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         internal void AddClient(TConnection client)
         {
             _allClients.Add(client.UserId, client);
+            _allClientsByConnectionId[client.NetworkConnection.ClientId] = client;
         }
         
         internal void RemoveClient(TConnection client)
         {
             _allClients.Remove(client.UserId);
+            _allClientsByConnectionId.Remove(client.NetworkConnection.ClientId);
         }
 
         public async UniTask StartSession()
@@ -64,6 +67,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public bool TryGetClient(long userId, out TConnection client)
         {
             return _allClients.TryGetValue(userId, out client);
+        }
+
+        public bool TryGetClient(NetworkConnection connection, out TConnection client)
+        {
+            return _allClientsByConnectionId.TryGetValue(connection.ClientId, out client);
         }
         
         public async UniTask StopSession()
