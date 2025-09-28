@@ -16,6 +16,7 @@ using Channel = FishNet.Transporting.Channel;
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
     public sealed class NetworkPipeline<TPlayerContext, TAuthenticator, TRoom, TMatchMaker, TSession, TAuthenticatorData, TMetaData> : IPipeline
+        where TMetaData : IMetaData
         where TAuthenticatorData : struct, IBroadcast
         where TPlayerContext : PlayerContext<TMetaData>, new()
         where TRoom : Room<TPlayerContext, TMetaData>, new()
@@ -101,7 +102,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             
             if (result.isApproved)
             {
-                context.UserId = result.userId;
+                context.UserId = result.metaData.UserId;
                 context.DataApproved = true;
             }
             else context.KickTime = 0f;
