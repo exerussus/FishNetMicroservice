@@ -58,6 +58,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         {
             await _pipeline.StartSession(_uniqRoomId);
         }
+
+        public bool TryGetClient(long userId, out TConnection client)
+        {
+            return _allClients.TryGetValue(userId, out client);
+        }
         
         public async UniTask StopSession()
         {
