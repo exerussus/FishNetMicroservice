@@ -275,7 +275,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             Debug.Log($"Игрок {authContext.UserId} авторизован");
             PlayerContext.Handle.SetUserId(playerContext, authContext.UserId);
             PlayerContext.Handle.SetNetworkConnection(playerContext, authContext.NetworkConnection);
-            var (isNewRoom, roomId, room) = await _matchMaker.GetRoomId(playerContext);
+            var (isNewRoom, roomId, room) = await _matchMaker.GetRoom(playerContext);
             
             if (!isNewRoom)
             {
