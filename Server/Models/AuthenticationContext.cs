@@ -4,13 +4,14 @@ using FishNet.Connection;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
-    internal class AuthenticationContext<TData> where TData : struct, IBroadcast
+    internal class AuthenticationContext<TData, TMetaData> where TData : struct, IBroadcast
     {
         public long UserId;
         public NetworkConnection NetworkConnection;
         public bool DataApproved;
         public float KickTime;
-        public TData Data;     
+        public TData AuthData;     
+        public TMetaData MetaData;     
     }
 
     internal class AuthenticationAwaiter

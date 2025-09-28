@@ -6,7 +6,8 @@ using FishNet.Managing.Server;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
-    public abstract class Room<TConnection> : IRoom where TConnection : PlayerContext, new()
+    public abstract class Room<TConnection, TMetaData> : IRoom 
+        where TConnection : PlayerContext<TMetaData>, new()
     {
         internal void SetRoomRefs(long uniqRoomId, ServerManager serverManager, IPipeline pipeline)
         {

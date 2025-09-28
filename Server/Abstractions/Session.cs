@@ -3,9 +3,9 @@ using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
 {
-    public interface ISession<TConnection, TRoom> : ISession 
-        where TConnection : PlayerContext, new()
-        where TRoom : Room<TConnection>, new()
+    public interface ISession<TConnection, TRoom, TMetaData> : ISession 
+        where TConnection : PlayerContext<TMetaData>, new()
+        where TRoom : Room<TConnection, TMetaData>, new()
     {
         /// <summary> Максимальное время ожидания комнаты при отсутствии игроков без окончания сессии. </summary>
         public abstract float MaxTimeOut { get; }
