@@ -58,7 +58,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
 
         private void OnDestroy()
         {
-            ServerManager.OnRemoteConnectionState -= OnConnectionStateChanged;
+            if (ServerManager != null) ServerManager.OnRemoteConnectionState -= OnConnectionStateChanged;
         }
 
         public async UniTask InitializeAndRunServer(ServerSettings settings)
