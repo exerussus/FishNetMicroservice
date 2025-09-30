@@ -8,7 +8,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
     public interface IAuthenticator<TAuthData, TMetaData> : IAuthenticator where TAuthData : struct, IBroadcast
     {
         public UniTask<(bool isApproved, TMetaData metaData)> OnDataCheck(NetworkConnection networkConnection, TAuthData data);
-        public void OnAuthenticationSuccess(NetworkConnection networkConnection, TMetaData metaData);
+        public UniTask OnAuthenticationSuccess(NetworkConnection networkConnection, TMetaData metaData);
     }
     
     public interface IAuthenticator

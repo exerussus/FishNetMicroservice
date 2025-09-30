@@ -1,6 +1,7 @@
 ﻿
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.DelayedActionsFeature;
 using Exerussus._1Extensions.Scripts.Extensions;
@@ -36,6 +37,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         internal readonly Dictionary<Type, IPipeline> Pipelines = new ();
         internal readonly Dictionary<int, AuthenticationAwaiter> AwaitingAuthenticators = new();
         internal readonly Dictionary<int, IPipeline> SegregatedClients = new();
+        internal CancellationTokenSource _cts;
         
         // roomId to Hashset of clients
         private readonly HashSet<int> _approvedList = new();
@@ -100,7 +102,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 Debug.LogError("FishNetServerMicroservice | Authenticators is empty");
                 return;
             }
-            
+
+            _cts = channel.Settings.CancellationTokenSource;
             await ThreadGate.CreateJob(() => InitializeAuthenticators(channel.Settings)).Run().AsUniTask();
             await DelayedAction.Create(0.1f, () => { })
                 .WithCondition(() => _isInitialized && _isStarted)

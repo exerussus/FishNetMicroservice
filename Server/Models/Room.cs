@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.SignalSystem;
 using FishNet.Broadcast;
@@ -59,9 +60,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             _allClientsByConnectionId.Remove(client.NetworkConnection.ClientId);
         }
 
-        public async UniTask StartSession()
+        public async UniTask StartSession(CancellationToken ct)
         {
-            await _pipeline.StartSession(_uniqRoomId);
+            await _pipeline.StartSession(_uniqRoomId, ct);
         }
 
         public bool TryGetClient(long userId, out TConnection client)
@@ -74,9 +75,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             return _allClientsByConnectionId.TryGetValue(connection.ClientId, out client);
         }
         
-        public async UniTask StopSession()
+        public async UniTask StopSession(CancellationToken ct)
         {
-            await _pipeline.StopSession(_uniqRoomId);
+            await _pipeline.StopSession(_uniqRoomId, ct);
         }
 
         public void Broadcast<T>(T broadcast) where T : struct, IBroadcast
@@ -109,8 +110,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public bool IsSessionStarted { get; }
         public bool IsSessionCancelled { get; }
         public bool IsSessionDone { get; }
-        public UniTask StartSession();
-        public UniTask StopSession();
+        public UniTask StartSession(CancellationToken ct);
+        public UniTask StopSession(CancellationToken ct);
         public void Broadcast<T>(T broadcast) where T : struct, IBroadcast;
         public void Broadcast<T>(NetworkConnection connection, T broadcast) where T : struct, IBroadcast;
         public void BroadcastExcept<T>(NetworkConnection connection, T broadcast) where T : struct, IBroadcast;

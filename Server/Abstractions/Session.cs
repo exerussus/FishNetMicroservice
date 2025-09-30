@@ -1,4 +1,5 @@
-﻿using Cysharp.Threading.Tasks;
+﻿using System.Threading;
+using Cysharp.Threading.Tasks;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
@@ -13,28 +14,28 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
         public abstract bool KickOnSessionStop { get; }
         
         /// <summary> Вызывается при создании новой комнаты. </summary>
-        public virtual UniTask OnRoomCreated(TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnRoomCreated(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         
         /// <summary> Добавление нового подключения </summary>
-        public virtual UniTask OnNewConnection(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnNewConnection(TConnection context, TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
 
         /// <summary> Отключение игрока до старта сессии. </summary>
-        public virtual UniTask OnDisconnectionBeforeStart(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnDisconnectionBeforeStart(TConnection context, TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
 
         /// <summary> Отключение игрока во время сессии. </summary>
-        public virtual UniTask OnDisconnectionWhileProcess(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnDisconnectionWhileProcess(TConnection context, TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
 
         /// <summary> Отключение игрока во время окончания сессии. </summary>
-        public virtual UniTask OnDisconnectionAfterStop(TConnection context, TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnDisconnectionAfterStop(TConnection context, TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         
         /// <summary> Старт игровой сессии. </summary>
-        public virtual UniTask OnSessionStarted(TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnSessionStarted(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         /// <summary> Конец игровой сессии. </summary>
-        public virtual UniTask OnSessionStopped(TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnSessionStopped(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         /// <summary> Отмена игровой сессии. </summary>
-        public virtual UniTask OnSessionCancelled(TRoom room) { return UniTask.CompletedTask; }
-        /// <summary> Закрытие игровой сессии по любой причине. </summary>
-        public virtual UniTask OnSessionClose(TRoom room) { return UniTask.CompletedTask; }
+        public virtual UniTask OnSessionCancelled(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
+        /// <summary> Вызывается перед уничтожением комнаты. </summary>
+        public virtual UniTask OnRoomDestroy(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
     }
 
     public interface ISession
