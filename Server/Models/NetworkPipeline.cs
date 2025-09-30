@@ -261,7 +261,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 {
                     if (!_inProcess.TryPop(clientId, out var authContext)) continue;
                     _customAuthenticator.SetAuthResult(authContext.NetworkConnection, true);
-                    _authenticator.OnAuthenticationSuccess(authContext.NetworkConnection, authContext.MetaData);
+                    _authenticator.OnAuthenticationSuccess(authContext.NetworkConnection, authContext.MetaData, _cts.Token);
                     _serverManager.Broadcast(authContext.NetworkConnection, new AuthenticationResult(true), false);
                     ProvideClientToRoom(authContext, _cts.Token).Forget();
                 }
