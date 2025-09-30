@@ -1,4 +1,5 @@
 ﻿
+using System.Threading;
 using Cysharp.Threading.Tasks;
 using FishNet.Broadcast;
 using FishNet.Connection;
@@ -7,7 +8,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
 {
     public interface IAuthenticator<TAuthData, TMetaData> : IAuthenticator where TAuthData : struct, IBroadcast
     {
-        public UniTask<(bool isApproved, TMetaData metaData)> OnDataCheck(NetworkConnection networkConnection, TAuthData data);
+        public UniTask<(bool isApproved, TMetaData metaData)> OnDataCheck(NetworkConnection networkConnection, TAuthData data, CancellationToken ct);
         public UniTask OnAuthenticationSuccess(NetworkConnection networkConnection, TMetaData metaData);
     }
     

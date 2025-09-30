@@ -115,7 +115,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         private async UniTask CheckAsync(AuthenticationContext<TAuthenticatorData, TMetaData> context)
         {
-            var result = await _authenticator.OnDataCheck(context.NetworkConnection, context.AuthData);
+            var result = await _authenticator.OnDataCheck(context.NetworkConnection, context.AuthData, _cts.Token);
             context.MetaData = result.metaData;
             
             if (result.isApproved)
