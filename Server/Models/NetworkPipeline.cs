@@ -18,18 +18,18 @@ using Channel = FishNet.Transporting.Channel;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
-    public sealed class NetworkPipeline<TPlayerContext, TAuthenticator, TRoom, TMatchMaker, TSession, TAuthenticatorData, TMetaData> : 
+    public sealed class NetworkPipeline<TPlayerContext, TAuthenticator, TRoom, TMatchMaker, TSession, TAuthenticatorData, TUserMetaData, TMetaRoomData> : 
         IPipeline, 
-        IRoomReceiver<TRoom, TPlayerContext, TMetaData> 
-        where TMetaData : IMetaData
+        IRoomReceiver<TRoom, TPlayerContext, TUserMetaData, TMetaRoomData> 
+        where TUserMetaData : IUserMetaData
         where TAuthenticatorData : struct, IBroadcast
-        where TPlayerContext : PlayerContext<TMetaData>, new()
-        where TRoom : Room<TPlayerContext, TMetaData>, new()
-        where TAuthenticator : IAuthenticator<TAuthenticatorData, TMetaData>, new()
-        where TMatchMaker : IMatchMaker<TPlayerContext, TRoom, TMetaData>, new()
-        where TSession : ISession<TPlayerContext, TRoom, TMetaData>, new()
+        where TPlayerContext : PlayerContext<TUserMetaData>, new()
+        where TRoom : Room<TPlayerContext, TUserMetaData, TMetaRoomData>, new()
+        where TAuthenticator : IAuthenticator<TAuthenticatorData, TUserMetaData>, new()
+        where TMatchMaker : IMatchMaker<TPlayerContext, TRoom, TUserMetaData, TMetaRoomData>, new()
+        where TSession : ISession<TPlayerContext, TRoom, TUserMetaData, TMetaRoomData>, new()
     {
-        public NetworkPipeline(RoomBuilder<TRoom, TPlayerContext, TMetaData> roomBuilder, TAuthenticator authenticator = default, TMatchMaker matchMaker = default, TSession session = default)
+        public NetworkPipeline(RoomBuilder<TRoom, TPlayerContext, TUserMetaData, TMetaRoomData> roomBuilder, TAuthenticator authenticator = default, TMatchMaker matchMaker = default, TSession session = default)
         {
             _authenticator = authenticator;
             _matchMaker = matchMaker;
@@ -48,14 +48,14 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         private TMatchMaker _matchMaker;
         private TSession _session;
 
-        private readonly Dictionary<int, AuthenticationContext<TAuthenticatorData, TMetaData>> _inProcess = new();
+        private readonly Dictionary<int, AuthenticationContext<TAuthenticatorData, TUserMetaData>> _inProcess = new();
         private readonly Dictionary<int, TPlayerContext> _authenticated = new ();
         private readonly Dictionary<int, IRoom> _roomsByNetworkConnectionId = new ();
         private readonly Dictionary<int, KickReason> _kickList = new();
         private readonly HashSet<int> _approvedList = new();
         private readonly HashSet<long> _emptyRooms = new();
         private readonly HashSet<long> _emptyRoomsToClear = new();
-        private RoomBuilder<TRoom, TPlayerContext, TMetaData> _roomBuilder;
+        private readonly RoomBuilder<TRoom, TPlayerContext, TUserMetaData, TMetaRoomData> _roomBuilder;
         
         internal readonly Dictionary<long, TPlayerContext> Connections = new();
         internal readonly Dictionary<long, TRoom> Rooms = new();
@@ -100,7 +100,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             
             _fishNetServerMicroservice.SegregatedClients.Add(connection.ClientId, this);
             
-            var context = new AuthenticationContext<TAuthenticatorData, TMetaData>
+            var context = new AuthenticationContext<TAuthenticatorData, TUserMetaData>
             {
                 NetworkConnection = connection,
                 KickTime = process.KickTime
@@ -113,7 +113,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             CheckAsync(context).Forget();
         }
         
-        private async UniTask CheckAsync(AuthenticationContext<TAuthenticatorData, TMetaData> context)
+        private async UniTask CheckAsync(AuthenticationContext<TAuthenticatorData, TUserMetaData> context)
         {
             var result = await _authenticator.OnDataCheck(context.NetworkConnection, context.AuthData, _cts.Token);
             context.MetaData = result.metaData;
@@ -171,7 +171,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             
             Debug.Log($"FishNetServerMicroservice | Starting session for room {roomId}");
             await _session.OnSessionStarted(room, ct);
-            foreach (var playerContext in room.ActiveClients) PlayerContext<TMetaData>.Handle.SetSessionStarted(playerContext, true);
+            foreach (var playerContext in room.ActiveClients) PlayerContext<TUserMetaData>.Handle.SetSessionStarted(playerContext, true);
         }
 
         public async UniTask StopSession(long roomId, CancellationToken ct)
@@ -298,16 +298,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             }
         }
 
-        private async UniTask ProvideClientToRoom(AuthenticationContext<TAuthenticatorData, TMetaData> authContext, CancellationToken ct)
+        private async UniTask ProvideClientToRoom(AuthenticationContext<TAuthenticatorData, TUserMetaData> authContext, CancellationToken ct)
         {
             var playerContext = await _matchMaker.CreatePlayerContext(authContext.UserId, authContext.MetaData, ct);
-            PlayerContext<TMetaData>.Handle.SetMetaData(playerContext, authContext.MetaData);
+            PlayerContext<TUserMetaData>.Handle.SetMetaData(playerContext, authContext.MetaData);
             _authenticated[authContext.NetworkConnection.ClientId] = playerContext;
             
             Debug.Log($"Игрок {authContext.UserId} авторизован");
             
-            PlayerContext<TMetaData>.Handle.SetUserId(playerContext, authContext.UserId);
-            PlayerContext<TMetaData>.Handle.SetNetworkConnection(playerContext, authContext.NetworkConnection);
+            PlayerContext<TUserMetaData>.Handle.SetUserId(playerContext, authContext.UserId);
+            PlayerContext<TUserMetaData>.Handle.SetNetworkConnection(playerContext, authContext.NetworkConnection);
             var roomId = await _matchMaker.GetRoomId(playerContext, ct);
             
             if (!Rooms.TryGetValue(roomId, out var room))
@@ -317,7 +317,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 return;
             }
             
-            PlayerContext<TMetaData>.Handle.SetRoom(playerContext, roomId);
+            PlayerContext<TUserMetaData>.Handle.SetRoom(playerContext, roomId);
             _roomsByNetworkConnectionId[authContext.NetworkConnection.ClientId] = room;
             room.AddClient(playerContext);
             await _session.OnNewConnection(playerContext, room, ct);

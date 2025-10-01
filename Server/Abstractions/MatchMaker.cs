@@ -4,12 +4,13 @@ using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
 {
-    public interface IMatchMaker<TConnection, TRoom, TMetaData> : IMatchMaker 
-        where TConnection : PlayerContext<TMetaData>, new()
-        where TRoom : Room<TConnection, TMetaData>
+    public interface IMatchMaker<TConnection, TRoom, TUserMetaData, TRoomMetaData> : IMatchMaker 
+        where TUserMetaData : IUserMetaData
+        where TConnection : PlayerContext<TUserMetaData>, new()
+        where TRoom : Room<TConnection, TUserMetaData, TRoomMetaData>
     {
         /// <summary> Распределение клиента по комнатам. </summary>
-        public UniTask<TConnection> CreatePlayerContext(long userId, TMetaData metaData, CancellationToken ct);
+        public UniTask<TConnection> CreatePlayerContext(long userId, TUserMetaData metaData, CancellationToken ct);
 
         /// <summary> Получение комнаты по соединению.
         /// Если комната найдена, соединение валидно - isValidConnection = true, а room != null.

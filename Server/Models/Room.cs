@@ -2,14 +2,16 @@
 using System.Threading;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.SignalSystem;
+using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions;
 using FishNet.Broadcast;
 using FishNet.Connection;
 using FishNet.Managing.Server;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 {
-    public abstract class Room<TConnection, TMetaData> : IRoom 
-        where TConnection : PlayerContext<TMetaData>, new()
+    public abstract class Room<TConnection, TMetaUserData, TRoomMetaData> : IRoom 
+        where TMetaUserData : IUserMetaData
+        where TConnection : PlayerContext<TMetaUserData>, new()
     {
         internal void SetRoomRefs(long uniqRoomId, ServerManager serverManager, IPipeline pipeline)
         {
@@ -19,6 +21,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         }
 
         private long _uniqRoomId;
+        private TRoomMetaData _roomMetaData;
         private ServerManager _serverManager;
         private IPipeline _pipeline;
         private readonly Dictionary<long, TConnection> _allClients = new();
@@ -31,6 +34,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public bool IsSessionCancelled { get; private set; }
         public bool IsSessionDone { get; private set; }
         public Signal Signal { get; } = new();
+
+        public TRoomMetaData RoomMetaData => _roomMetaData;
+
         public long UniqRoomId => _uniqRoomId;
         
         internal void SetSessionStarted(bool isStarted)
@@ -41,6 +47,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         internal void SetSessionDone(bool isDone)
         {
             IsSessionDone = isDone;
+        }
+        
+        internal void SetRoomMetaData(TRoomMetaData metaData)
+        {
+            _roomMetaData = metaData;
         }
         
         internal void SetSessionCancelled(bool isCancelled)
