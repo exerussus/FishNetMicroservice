@@ -23,6 +23,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
         public virtual UniTask OnRoomCreated(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         /// <summary> Вызывается перед уничтожением комнаты. </summary>
         public virtual UniTask OnRoomDestroy(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
+        public virtual UniTask OnPlayerDisconnected(TConnection userData, CancellationToken ct) { return UniTask.CompletedTask; }
     }
     
     public interface IMatchMaker

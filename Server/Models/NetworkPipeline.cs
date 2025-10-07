@@ -340,6 +340,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 return;
             }
             
+            _matchMaker.OnPlayerDisconnected(context, _cts.Token);
+            
             Debug.Log($"Авторизация игрока {context.UserId} слетает.");
             
             if (!Rooms.TryGetValue(context.RoomId, out var room))
