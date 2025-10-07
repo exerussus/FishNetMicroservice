@@ -1,6 +1,7 @@
 ﻿using System.Threading;
 using Cysharp.Threading.Tasks;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models;
+using FishNet.Connection;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
 {
@@ -10,7 +11,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
         where TRoom : Room<TConnection, TUserMetaData, TRoomMetaData>
     {
         /// <summary> Распределение клиента по комнатам. </summary>
-        public UniTask<TConnection> CreatePlayerContext(long userId, TUserMetaData metaData, CancellationToken ct);
+        public UniTask<TConnection> CreatePlayerContext(long userId, NetworkConnection connection, TUserMetaData metaData, CancellationToken ct);
 
         /// <summary> Получение комнаты по соединению.
         /// Если комната найдена, соединение валидно - isValidConnection = true, а room != null.

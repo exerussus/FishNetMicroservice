@@ -300,7 +300,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
         private async UniTask ProvideClientToRoom(AuthenticationContext<TAuthenticatorData, TUserMetaData> authContext, CancellationToken ct)
         {
-            var playerContext = await _matchMaker.CreatePlayerContext(authContext.UserId, authContext.MetaData, ct);
+            var playerContext = await _matchMaker.CreatePlayerContext(authContext.UserId, authContext.NetworkConnection, authContext.MetaData, ct);
             PlayerContext<TUserMetaData>.Handle.SetMetaData(playerContext, authContext.MetaData);
             _authenticated[authContext.NetworkConnection.ClientId] = playerContext;
             
