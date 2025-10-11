@@ -31,8 +31,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         public Dictionary<long, TConnection>.ValueCollection ActiveClients => _allClients.Values;
         public bool IsSessionStarted { get; private set; }
+        public bool IsSessionCanceled { get; private set; }
         public bool IsSessionClosed { get; private set; }
-        public bool IsSessionDone { get; private set; }
         public Signal Signal { get; } = new();
 
         public TRoomMetaData RoomMetaData => _roomMetaData;
@@ -44,9 +44,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             IsSessionStarted = isStarted;
         }
         
-        internal void SetSessionDone(bool isDone)
+        internal void SetSessionClosed(bool isSessionClosed)
         {
-            IsSessionDone = isDone;
+            IsSessionClosed = isSessionClosed;
         }
         
         internal void SetRoomMetaData(TRoomMetaData metaData)
@@ -56,7 +56,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         internal void SetSessionCancelled(bool isCancelled)
         {
-            IsSessionClosed = isCancelled;
+            IsSessionCanceled = isCancelled;
         }
         
         internal void AddClient(TConnection client)
@@ -90,6 +90,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         {
             await _pipeline.StopSession(_uniqRoomId, ct);
         }
+        
+        public async UniTask CloseSession(CancellationToken ct)
+        {
+            await _pipeline.CloseSession(_uniqRoomId, ct);
+        }
 
         public void Broadcast<T>(T broadcast) where T : struct, IBroadcast
         {
@@ -119,8 +124,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public Signal Signal { get; } 
         public long UniqRoomId { get; }
         public bool IsSessionStarted { get; }
+        public bool IsSessionCanceled { get; }
         public bool IsSessionClosed { get; }
-        public bool IsSessionDone { get; }
         public UniTask StartSession(CancellationToken ct);
         public UniTask StopSession(CancellationToken ct);
         public void Broadcast<T>(T broadcast) where T : struct, IBroadcast;

@@ -1,6 +1,7 @@
 ﻿
 using System.Collections.Generic;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.Scripts.Extensions;
 using Exerussus._1Extensions.SignalSystem;
@@ -162,12 +163,51 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             }
             
             room.SetSessionStarted(true);
-            room.SetSessionDone(false);
             room.Broadcast(new SessionStateChanged(true));
             
             Debug.Log($"FishNetServerMicroservice | Starting session for room {roomId}");
             await _session.OnSessionStarted(room, ct);
             foreach (var playerContext in room.ActiveClients) PlayerContext<TUserMetaData>.Handle.SetSessionStarted(playerContext, true);
+        }
+
+        public async UniTask CloseSession(long roomId, CancellationToken ct)
+        {
+            if (!Rooms.TryGetValue(roomId, out var room))
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} not found.");
+                return;
+            }
+            
+            if (room.IsSessionClosed)
+            {
+                Debug.LogError($"FishNetServerMicroservice | Room {roomId} already stopped.");
+                return;
+            }
+            
+            room.SetSessionClosed(true);
+            
+            if (!room.IsSessionStarted)
+            {
+                room.SetSessionCancelled(true);
+                await _session.OnSessionCanceled(room, ct);
+            }
+            else
+            {
+                if (room.ActiveClients.Count > 0) room.Broadcast(new SessionStateChanged(false));
+                await _session.OnSessionStopped(room, ct);
+            }
+            
+            await _session.OnSessionClose(room, ct);
+            
+            foreach (var playerContext in room.ActiveClients)
+            {
+                await _session.OnDisconnectionAfterStop(playerContext, room, ct);
+            }
+
+            await _session.OnRoomDestroy(room, ct);
+            await _matchMaker.OnRoomDestroy(room, ct);
+            Rooms.Remove(room.UniqRoomId);
+            await _roomBuilder.DestroyRoom(room, ct);
         }
 
         public async UniTask StopSession(long roomId, CancellationToken ct)
@@ -178,13 +218,13 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 return;
             }
             
-            if (room.IsSessionDone)
+            if (room.IsSessionClosed)
             {
                 Debug.LogError($"FishNetServerMicroservice | Room {roomId} already stopped.");
                 return;
             }
 
-            if (!room.IsSessionStarted && room.IsSessionClosed)
+            if (!room.IsSessionStarted && room.IsSessionCanceled)
             {
                 Debug.LogError($"FishNetServerMicroservice | Room {roomId} already cancelled.");
             }
@@ -196,7 +236,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             }
             else
             {
-                if (_session.CloseOnSessionStop) room.SetSessionDone(true);
+                if (_session.CloseOnSessionStop) room.SetSessionClosed(true);
                 room.Broadcast(new SessionStateChanged(false));
                 await _session.OnSessionStopped(room, ct);
             }
@@ -292,7 +332,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 {
                     _emptyRooms.Remove(roomId);
                     if (Rooms.TryGetValue(roomId, out var room) && room.ActiveClients.Count > 0) continue;
-                    StopSession(roomId, _cts.Token).Forget();
+                    CloseSession(roomId, _cts.Token).Forget();
                 }
                 
                 _emptyRoomsToClear.Clear();
@@ -357,16 +397,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             {
                 _session.OnDisconnectionBeforeStart(context, room, _cts.Token);
             }
-            else if (room.IsSessionStarted && !room.IsSessionDone)
+            else if (room.IsSessionStarted && !room.IsSessionClosed)
             {
                 _session.OnDisconnectionWhileProcess(context, room, _cts.Token);
             }
-            else if (room.IsSessionDone)
+            else if (room.IsSessionClosed)
             {
                 _session.OnDisconnectionAfterStop(context, room, _cts.Token);
             }
 
-            if (!room.IsSessionDone && !room.IsSessionClosed)
+            if (!room.IsSessionClosed && !room.IsSessionCanceled)
             {
                 room.SessionStopTime = Time.time + _session.MaxTimeOut;
                 _emptyRooms.Add(room.UniqRoomId);
@@ -380,6 +420,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public void OnDestroy();
         public bool TryGetRoom(long roomId, out IRoom room);
         public UniTask StartSession(long roomId, CancellationToken ct);
+        public UniTask CloseSession(long uniqRoomId, CancellationToken ct);
         public UniTask StopSession(long roomId, CancellationToken ct);
         public void Update(float time);
         public void OnConnectionStateChanged(NetworkConnection connection, RemoteConnectionStateArgs data);

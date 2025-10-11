@@ -34,6 +34,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Abstractions
         /// <summary> Конец игровой сессии. </summary>
         public virtual UniTask OnSessionStopped(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         /// <summary> Отмена игровой сессии. </summary>
+        public virtual UniTask OnSessionCanceled(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         public virtual UniTask OnSessionClose(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
         /// <summary> Вызывается перед уничтожением комнаты. </summary>
         public virtual UniTask OnRoomDestroy(TRoom room, CancellationToken ct) { return UniTask.CompletedTask; }
