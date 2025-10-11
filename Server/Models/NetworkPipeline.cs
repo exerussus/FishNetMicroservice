@@ -1,5 +1,6 @@
 ﻿
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
@@ -72,7 +73,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
         public async UniTask StopAllSessions()
         {
-            foreach (var room in Rooms.Keys)
+            var rooms = Rooms.Keys.ToArray();
+            foreach (var room in rooms)
             {
                 await CloseSession(room, _cts.Token);
             }
