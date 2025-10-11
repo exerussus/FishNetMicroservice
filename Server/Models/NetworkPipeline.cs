@@ -203,6 +203,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             {
                 await _session.OnDisconnectionAfterStop(playerContext, room, ct);
             }
+                
+            foreach (var playerContext in room.ActiveClients)
+            {
+                _fishNetServerMicroservice.Tugboat.StopConnection(playerContext.NetworkConnection.ClientId, false);
+            }
 
             await _session.OnRoomDestroy(room, ct);
             await _matchMaker.OnRoomDestroy(room, ct);
