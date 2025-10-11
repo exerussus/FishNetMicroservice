@@ -58,8 +58,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         private readonly HashSet<long> _emptyRooms = new();
         private readonly HashSet<long> _emptyRoomsToClear = new();
         private readonly RoomBuilder<TRoom, TPlayerContext, TUserMetaData, TMetaRoomData> _roomBuilder;
-        
-        internal readonly Dictionary<long, TPlayerContext> Connections = new();
         internal readonly Dictionary<long, TRoom> Rooms = new();
 
         public IAuthenticator Authenticator => _authenticator;
@@ -74,10 +72,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public async UniTask StopAllSessions()
         {
             var rooms = Rooms.Keys.ToArray();
-            foreach (var room in rooms)
-            {
-                await CloseSession(room, _cts.Token);
-            }
+            foreach (var room in rooms) await CloseSession(room, _cts.Token);
+            ClearData();
         }
 
         public void Initialize(FishNetServerMicroservice fishNetMicroService)
@@ -97,6 +93,18 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             _session.OnInitialize();
         }
 
+        private void ClearData()
+        {
+            _inProcess.Clear();
+            _authenticated.Clear();
+            _roomsByNetworkConnectionId.Clear();
+            _kickList.Clear();
+            _approvedList.Clear();
+            _emptyRooms.Clear();
+            _emptyRoomsToClear.Clear();
+            Rooms.Clear();
+        }
+        
         public void OnDestroy()
         {
             _serverManager.UnregisterBroadcast<TAuthenticatorData>(OnAuthData);

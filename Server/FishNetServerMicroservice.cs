@@ -212,6 +212,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                     pipeline.OnDestroy();
                 }
                 Pipelines.Clear();
+                SegregatedClients.Clear();
                 AwaitingAuthenticators.Clear();
                 if (ServerSettings != null)
                 {
