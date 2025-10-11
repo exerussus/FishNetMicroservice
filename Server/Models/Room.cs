@@ -31,7 +31,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         public Dictionary<long, TConnection>.ValueCollection ActiveClients => _allClients.Values;
         public bool IsSessionStarted { get; private set; }
-        public bool IsSessionCancelled { get; private set; }
+        public bool IsSessionClosed { get; private set; }
         public bool IsSessionDone { get; private set; }
         public Signal Signal { get; } = new();
 
@@ -56,7 +56,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         internal void SetSessionCancelled(bool isCancelled)
         {
-            IsSessionCancelled = isCancelled;
+            IsSessionClosed = isCancelled;
         }
         
         internal void AddClient(TConnection client)
@@ -119,7 +119,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public Signal Signal { get; } 
         public long UniqRoomId { get; }
         public bool IsSessionStarted { get; }
-        public bool IsSessionCancelled { get; }
+        public bool IsSessionClosed { get; }
         public bool IsSessionDone { get; }
         public UniTask StartSession(CancellationToken ct);
         public UniTask StopSession(CancellationToken ct);

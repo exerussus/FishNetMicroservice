@@ -184,7 +184,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 return;
             }
 
-            if (!room.IsSessionStarted && room.IsSessionCancelled)
+            if (!room.IsSessionStarted && room.IsSessionClosed)
             {
                 Debug.LogError($"FishNetServerMicroservice | Room {roomId} already cancelled.");
             }
@@ -192,16 +192,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             if (!room.IsSessionStarted)
             {
                 room.SetSessionCancelled(true);
-                await _session.OnSessionCancelled(room, ct);
+                await _session.OnSessionClose(room, ct);
             }
             else
             {
-                room.SetSessionDone(true);
+                if (_session.CloseOnSessionStop) room.SetSessionDone(true);
                 room.Broadcast(new SessionStateChanged(false));
                 await _session.OnSessionStopped(room, ct);
             }
             
-            if (_session.KickOnSessionStop)
+            if (_session.CloseOnSessionStop)
             {
                 foreach (var playerContext in room.ActiveClients)
                 {
@@ -366,7 +366,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 _session.OnDisconnectionAfterStop(context, room, _cts.Token);
             }
 
-            if (!room.IsSessionDone && !room.IsSessionCancelled)
+            if (!room.IsSessionDone && !room.IsSessionClosed)
             {
                 room.SessionStopTime = Time.time + _session.MaxTimeOut;
                 _emptyRooms.Add(room.UniqRoomId);
