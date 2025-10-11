@@ -70,6 +70,14 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             return _roomsByNetworkConnectionId.TryGetValue(connection.ClientId, out room);
         }
 
+        public async UniTask StopAllSessions()
+        {
+            foreach (var room in Rooms.Keys)
+            {
+                await CloseSession(room, _cts.Token);
+            }
+        }
+
         public void Initialize(FishNetServerMicroservice fishNetMicroService)
         {
             _authenticator ??= new TAuthenticator();
@@ -433,6 +441,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public IMatchMaker MatchMaker { get; }
         public ISession Session { get; }
         public bool TryGetRoom(NetworkConnection connection, out IRoom room);
+        public UniTask StopAllSessions();
     }
 
     public static class PipelineExtensions

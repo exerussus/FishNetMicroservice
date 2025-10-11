@@ -13,6 +13,15 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Api
 
         public readonly ServerSettings Settings;
     }
+    public struct StopServer : IChannel
+    {
+        public StopServer(StopServerSettings settings = null)
+        {
+            Settings = settings;
+        }
+
+        public readonly StopServerSettings Settings;
+    }
 
     public readonly struct OnServerStateChanged : IChannel
     {

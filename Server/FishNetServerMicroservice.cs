@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using Exerussus._1Extensions.Async;
 using Exerussus._1Extensions.DelayedActionsFeature;
 using Exerussus._1Extensions.Scripts.Extensions;
 using Exerussus._1Extensions.ThreadGateFeature;
@@ -25,6 +26,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
     public class FishNetServerMicroservice : MonoBehaviour,
         IService,
         IChannelPuller<RunServer>,
+        IChannelPuller<StopServer>,
         IChannelPusher<OnServerStateChanged>
     {
         public ConnectionStart startType;
@@ -108,6 +110,23 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             await DelayedAction.Create(0.1f, () => { })
                 .WithCondition(() => _isInitialized && _isStarted)
                 .Run().AsUniTask();
+        }
+
+        public async UniTask PullBroadcast(StopServer channel)
+        {
+            var tasks = new UniTask[Pipelines.Count];
+            
+            var i = -1;
+            
+            foreach (var pipeline in Pipelines.Values)
+            {
+                i++;
+                tasks[i] = pipeline.StopAllSessions();
+            }
+
+            await tasks;
+            ServerManager.StopConnection(true);
+            await TaskUtils.WaitUntilCondition(() => !_isStarted);
         }
         
         public void Update()
