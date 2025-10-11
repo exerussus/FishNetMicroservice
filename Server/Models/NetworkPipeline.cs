@@ -130,6 +130,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         {
             room.SetRoomRefs(roomId, _serverManager, this);
             Rooms[roomId] = room;
+            Debug.Log($"FishNetServerMicroservice | Room {roomId} created.");
             await _matchMaker.OnRoomCreated(room, ct);
             await _session.OnRoomCreated(room, ct);
         }
@@ -160,13 +161,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 return;
             }
             
-            if (room.IsSessionDone)
-            {
-                Debug.LogError($"FishNetServerMicroservice | Room {roomId} already stopped.");
-                return;
-            }
-            
             room.SetSessionStarted(true);
+            room.SetSessionDone(false);
             room.Broadcast(new SessionStateChanged(true));
             
             Debug.Log($"FishNetServerMicroservice | Starting session for room {roomId}");
@@ -216,6 +212,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 {
                     _fishNetServerMicroservice.Tugboat.StopConnection(playerContext.NetworkConnection.ClientId, false);
                 }
+            }
+            else
+            {
+                room.SetSessionStarted(false);
+                return;
             }
 
             await _session.OnRoomDestroy(room, ct);
