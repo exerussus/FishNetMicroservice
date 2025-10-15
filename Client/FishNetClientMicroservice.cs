@@ -20,7 +20,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
     [RequireComponent(typeof(NetworkManager), typeof(ClientManager), typeof(Tugboat))]
     public class FishNetClientMicroservice : MonoBehaviour,
         IService,
-        IChannelPuller<RunClient>,
+        ICommandPuller<RunClient, (bool isSuccess, RunResult resultDetails)>,
         IChannelPuller<StopClient>
     {
         public ConnectionStart startType;
@@ -81,24 +81,24 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             }
         }
 
-        public async UniTask PullBroadcast(RunClient channel)
+        public async UniTask<(bool isSuccess, RunResult resultDetails)> PullBroadcast(RunClient command)
         {
             if (_isConnectionInProcess)
             {
                 Debug.LogError($"FishNetClientMicroservice | Connection already in process with connector {_currentConnector.GetType()}.");
-                return;
+                return (false, RunResult.AlreadyInProcess);
             }
             
-            if (channel.Connector == null)
+            if (command.Connector == null)
             {
                 Debug.LogError($"FishNetClientMicroservice | Connector is null");
-                return;
+                return (false, RunResult.ConnectorIsNull);
             }
 
             if (_isConnectionStarted)
             {
                 Debug.LogWarning($"FishNetClientMicroservice | Connector already started with connector {_currentConnector.GetType()}.");
-                return;
+                return (false, RunResult.AlreadyInProcess);
             }
             
             _isConnectionStarted = false;
@@ -106,16 +106,16 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             _isStopClient = false;
             _isAuthenticated = false;
             _isConnectionInProcess = true;
-            _currentConnector = channel.Connector;
+            _currentConnector = command.Connector;
             
-            await ThreadGate.CreateJob(() => StartConnection(channel.Address, channel.Port)).Run().AsUniTask();
+            await ThreadGate.CreateJob(() => StartConnection(command.Address, command.Port)).Run().AsUniTask();
             await DelayedAction.Create(0.05f, () => Debug.Log($"FishNetClientMicroservice | Client authenticated and completely started."))
                 .WithValidation(() => _isConnectionStarted && !_isStopClient)
                 .WithCondition(() => _isStarted && _isAuthenticated)
                 .Run().AsUniTask();
             
-            RunClientResponse.Handle.SetResult(channel.Response, _currentRunResult);
             _isConnectionInProcess = false;
+            return (_currentRunResult == RunResult.Authenticated, _currentRunResult);
         }
 
         public async UniTask PullBroadcast(StopClient channel)

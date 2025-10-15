@@ -1,4 +1,5 @@
-﻿using FishNet.Connection;
+﻿
+using FishNet.Connection;
 
 namespace Exerussus.MicroservicesModules.FishNetMicroservice.Global.Abstractions
 {
