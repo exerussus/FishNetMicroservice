@@ -25,9 +25,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
     [RequireComponent(typeof(NetworkManager))]
     public class FishNetServerMicroservice : MonoBehaviour,
         IService,
-        IChannelPuller<RunServer>,
-        IChannelPuller<StopServer>,
-        IChannelPusher<OnServerStateChanged>
+        IChannelPullerAsync<RunServer>,
+        IChannelPullerAsync<StopServer>,
+        IChannelPusherAsync<OnServerStateChanged>
     {
         public ConnectionStart startType;
         public ServiceHandle Handle { get; set; }
@@ -68,7 +68,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         public async UniTask InitializeAndRunServer(ServerSettings settings)
         {
             await ThreadGate.CreateJob(InitializeService).Run().AsUniTask();
-            await PullBroadcast(new RunServer(settings));
+            await PullBroadcastAsync(new RunServer(settings));
         }
         
         public void InitializeService()
@@ -85,7 +85,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             MicroservicesApi.RegisterService(this);
         }
         
-        public async UniTask PullBroadcast(RunServer channel)
+        public async UniTask PullBroadcastAsync(RunServer channel)
         {
             if (_isInitialized)
             {
@@ -112,7 +112,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 .Run().AsUniTask();
         }
 
-        public async UniTask PullBroadcast(StopServer channel)
+        public async UniTask PullBroadcastAsync(StopServer channel)
         {
             var tasks = new UniTask[Pipelines.Count];
             
@@ -203,7 +203,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
             if (state.ConnectionState == LocalConnectionState.Started)
             {
                 _isStarted = true;
-                Handle.Push(new OnServerStateChanged(true)).Forget();
+                Handle.PushAsync(new OnServerStateChanged(true)).Forget();
             }
             else if (state.ConnectionState == LocalConnectionState.Stopped)
             {
@@ -223,7 +223,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 ServerManager.OnServerConnectionState -= OnServerConnectionStateChanged;
                 _isStarted = false;
                 _isInitialized = false;
-                Handle.Push(new OnServerStateChanged(false)).Forget();
+                Handle.PushAsync(new OnServerStateChanged(false)).Forget();
             }
         }
 

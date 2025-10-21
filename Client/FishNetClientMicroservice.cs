@@ -20,8 +20,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
     [RequireComponent(typeof(NetworkManager), typeof(ClientManager), typeof(Tugboat))]
     public class FishNetClientMicroservice : MonoBehaviour,
         IService,
-        ICommandPuller<RunClient, (bool isSuccess, RunResult resultDetails)>,
-        IChannelPuller<StopClient>
+        ICommandPullerAsync<RunClient, (bool isSuccess, RunResult resultDetails)>,
+        IChannelPullerAsync<StopClient>
     {
         public ConnectionStart startType;
         public ServiceHandle Handle { get; set; }
@@ -81,7 +81,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             }
         }
 
-        public async UniTask<(bool isSuccess, RunResult resultDetails)> PullBroadcast(RunClient command)
+        public async UniTask<(bool isSuccess, RunResult resultDetails)> PullBroadcastAsync(RunClient command)
         {
             if (_isConnectionInProcess)
             {
@@ -118,7 +118,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             return (_currentRunResult == RunResult.Authenticated, _currentRunResult);
         }
 
-        public async UniTask PullBroadcast(StopClient channel)
+        public async UniTask PullBroadcastAsync(StopClient channel)
         {
             if (!_isConnectionStarted) return;
             
