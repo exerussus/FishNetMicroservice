@@ -192,20 +192,27 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
 
             Tugboat.SetClientAddress(settings.Address);
             Tugboat.SetPort(settings.Port);
-            ServerManager.OnServerConnectionState += OnServerConnectionStateChanged;
+            ServerManager.OnServerConnectionState += InitializeCallback;
             ServerManager.StartConnection();
             
             _isInitialized = true;
         }
 
-        private void OnServerConnectionStateChanged(ServerConnectionStateArgs state)
+
+        private void InitializeCallback(ServerConnectionStateArgs state)
         {
             if (state.ConnectionState == LocalConnectionState.Started)
             {
+                ServerManager.OnServerConnectionState -= InitializeCallback;
+                ServerManager.OnServerConnectionState += OnServerConnectionStateChanged;
                 _isStarted = true;
                 Handle.PushAsync(new OnServerStateChanged(true)).Forget();
             }
-            else if (state.ConnectionState == LocalConnectionState.Stopped)
+        }
+        
+        private void OnServerConnectionStateChanged(ServerConnectionStateArgs state)
+        {
+            if (state.ConnectionState == LocalConnectionState.Stopped)
             {
                 foreach (var pipeline in Pipelines.Values)
                 {
