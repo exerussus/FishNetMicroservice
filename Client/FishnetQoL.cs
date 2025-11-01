@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using Cysharp.Threading.Tasks;
@@ -13,6 +12,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
     public static class FishnetQoL
     {
         private static readonly Dictionary<Type, object> RequestProcesses = new();
+        private static readonly object QueueLock = new();
         
         public static async UniTask<TResponse> RequestAsync<TRequest, TResponse>(TRequest request = default, CancellationToken cancellationToken = default) 
             where TRequest : struct, IBroadcast
@@ -29,16 +29,20 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
         private static RequestProcess<T> CreateProcess<T>() where T : struct, IBroadcast
         {
             var type = typeof(T);
-            if (RequestProcesses.TryGetValue(type, out var rawQueue))
+            
+            lock (QueueLock)
             {
-                var queue = (ConcurrentQueue<RequestProcess<T>>)rawQueue;
-                return queue.TryDequeue(out var process) ? process : new RequestProcess<T>();
-            }
-            else
-            {
-                var process = new RequestProcess<T>();
-                RequestProcesses[type] = new ConcurrentQueue<RequestProcess<T>>();
-                return process;
+                if (RequestProcesses.TryGetValue(type, out var rawQueue))
+                {
+                    var queue = (Queue<RequestProcess<T>>)rawQueue;
+                    return queue.TryDequeue(out var process) ? process : new RequestProcess<T>();
+                }
+                else
+                {
+                    var process = new RequestProcess<T>();
+                    RequestProcesses[type] = new Queue<RequestProcess<T>>();
+                    return process;
+                }
             }
         }
         
@@ -48,10 +52,14 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             process.Response = default;
 
             var type = typeof(T);
-            if (RequestProcesses.TryGetValue(type, out var rawQueue))
+            
+            lock (QueueLock)
             {
-                var queue = (ConcurrentQueue<RequestProcess<T>>)rawQueue;
-                queue.Enqueue(process);
+                if (RequestProcesses.TryGetValue(type, out var rawQueue))
+                {
+                    var queue = (Queue<RequestProcess<T>>)rawQueue;
+                    queue.Enqueue(process);
+                }
             }
         }
 
