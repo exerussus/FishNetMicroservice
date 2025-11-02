@@ -144,9 +144,15 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             }
             else
             {
-                _kickList.Add(context.NetworkConnection.ClientId, (KickReason.Unset, "Authentication data check failed."));
+                KickUser(context.NetworkConnection, KickReason.Unset, "Authentication data check failed.");
                 context.KickTime = 0f;
             }
+        }
+
+        public void KickUser(NetworkConnection connection, KickReason reason, string details)
+        {
+            _kickList.Add(connection.ClientId, (reason, details));
+            _inProcess.Remove(connection.ClientId);
         }
 
         public async UniTask PushCreatedRoom(long roomId, TRoom room, CancellationToken ct)
