@@ -53,7 +53,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         private readonly Dictionary<int, AuthenticationContext<TAuthenticatorData, TUserMetaData>> _inProcess = new();
         private readonly Dictionary<int, TPlayerContext> _authenticated = new ();
         private readonly Dictionary<int, IRoom> _roomsByNetworkConnectionId = new ();
-        private readonly Dictionary<int, KickReason> _kickList = new();
+        private readonly Dictionary<int, (KickReason reson, string details)> _kickList = new();
         private readonly HashSet<int> _approvedList = new();
         private readonly HashSet<long> _emptyRooms = new();
         private readonly HashSet<long> _emptyRoomsToClear = new();
@@ -142,7 +142,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 context.UserId = result.metaData.UserId;
                 context.DataApproved = true;
             }
-            else context.KickTime = 0f;
+            else
+            {
+                _kickList.Add(context.NetworkConnection.ClientId, (KickReason.Unset, "Authentication data check failed."));
+                context.KickTime = 0f;
+            }
         }
 
         public async UniTask PushCreatedRoom(long roomId, TRoom room, CancellationToken ct)
@@ -300,20 +304,20 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 
                 if (context.KickTime < time)
                 {
-                    _kickList.Add(clientId, KickReason.UnusualActivity);
+                    _kickList.Add(clientId, (KickReason.UnusualActivity, "Authentication timeout."));
                 }
             }
             
             if (_kickList.Count > 0)
             {
-                foreach (var (clientId, kickReason) in _kickList)
+                foreach (var (clientId, kickContext) in _kickList)
                 {
                     if (_inProcess.TryPop(clientId, out var context))
                     {
                         _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(false), false);
                     } 
                     else continue;
-                    context.NetworkConnection.Kick(kickReason, LoggingType.Common, "Authentication timeout.");
+                    context.NetworkConnection.Kick(kickContext.reson, LoggingType.Common, $"Kicked for {kickContext.details}.");
                 }
 
                 _kickList.Clear();
