@@ -13,14 +13,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
     public class FishNetRequestRegistratorService : IServiceInspector
     {
         public ServiceHandle Handle { get; set; }
-
-        public Dictionary<Type, object> AsyncChannelsSubs { get; } = null;
-        public Dictionary<int, RegisteredService> RegisteredServices { get; } = null;
-        public Dictionary<int, HashSet<Type>> AsyncPushersToChannels { get; } = null;
-        public Dictionary<Type, HashSet<int>> AsyncChannelsToPullers { get; } = null;
-        public Dictionary<int, HashSet<Type>> PushersToChannels { get; } = null;
-        public Dictionary<Type, HashSet<int>> ChannelsToPullers { get; } = null;
-        public Dictionary<Type, object> ChannelsSubs { get; } = null;
+        public InternalInstances InternalInstances { get; }
 
         public void OnServiceRegistered(RegisteredService registeredService)
         {

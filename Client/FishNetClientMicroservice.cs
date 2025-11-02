@@ -83,16 +83,18 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
 
         public async UniTask<(bool isSuccess, RunResult resultDetails)> PullBroadcastAsync(RunClient command)
         {
-            if (_isConnectionInProcess)
-            {
-                Debug.LogError($"FishNetClientMicroservice | Connection already in process with connector {_currentConnector.GetType()}.");
-                return (false, RunResult.AlreadyInProcess);
-            }
-            
             if (command.Connector == null)
             {
                 Debug.LogError($"FishNetClientMicroservice | Connector is null");
                 return (false, RunResult.ConnectorIsNull);
+            }
+            
+            Debug.Log($"FishNetClientMicroservice | Starting connection to {command.Address}:{command.Port} with connector {command.Connector.GetType()}.");
+            
+            if (_isConnectionInProcess)
+            {
+                Debug.LogError($"FishNetClientMicroservice | Connection already in process with connector {_currentConnector.GetType()}.");
+                return (false, RunResult.AlreadyInProcess);
             }
 
             if (_isConnectionStarted)
