@@ -115,7 +115,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         private void OnAuthData(NetworkConnection connection, TAuthenticatorData data, Channel channel)
         {
-            Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} sent authentication data {data.GetType().Name}.");
+            Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} sent authentication data {data.GetType()}.");
             
             if (!_fishNetServerMicroservice.AwaitingAuthenticators.TryPop(connection.ClientId, out var process))
             {
@@ -140,9 +140,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         private async UniTask CheckAsync(AuthenticationContext<TAuthenticatorData, TUserMetaData> context)
         {
+            Debug.Log($"FishNetServerMicroservice | Player {context.NetworkConnection.ClientId} starting to check authentication with authenticator {typeof(TAuthenticatorData)}.");
             var result = await _authenticator.OnDataCheck(context.NetworkConnection, context.AuthData, _cts.Token);
             context.MetaData = result.metaData;
-            
+
+            Debug.Log($"FishNetServerMicroservice | Player {context.NetworkConnection.ClientId} finished checking authentication with authenticator {typeof(TAuthenticatorData)} with result <isApproved: {result.isApproved}>.");
             if (result.isApproved)
             {
                 context.UserId = result.metaData.UserId;
