@@ -420,7 +420,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             
             if (!_authenticated.TryPop(connection.ClientId, out var context))
             {
-                Debug.LogError($"FishNetServerMicroservice | Player {connection.ClientId} kicked without authenticating.");
+                Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} kicked without authenticating.");
                 return;
             }
             
