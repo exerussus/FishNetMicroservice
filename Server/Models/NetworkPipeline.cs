@@ -414,12 +414,13 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             
             if (_inProcess.TryPop(connection.ClientId, out _))
             {
-                Debug.LogError($"FishNetServerMicroservice | Player {connection.ClientId} not found.");
+                Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} kicked while authenticating.");
                 return;
             }
+            
             if (!_authenticated.TryPop(connection.ClientId, out var context))
             {
-                Debug.LogError($"FishNetServerMicroservice | Player {connection.ClientId} not found.");
+                Debug.LogError($"FishNetServerMicroservice | Player {connection.ClientId} kicked without authenticating.");
                 return;
             }
             
