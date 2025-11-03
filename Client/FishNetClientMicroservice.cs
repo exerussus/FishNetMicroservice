@@ -29,7 +29,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
         private Tugboat _tugboat;
         private NetworkManager _networkManager;
         private IConnector _currentConnector;
-
+        private string _ip;
+        private ushort _port;
         private RunResult _currentRunResult;
         private bool _isStarted;
         private bool _isConnectionInProcess;
@@ -109,6 +110,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             _isAuthenticated = false;
             _isConnectionInProcess = true;
             _currentConnector = command.Connector;
+            _ip = command.Address;
+            _port = command.Port;
             
             await ThreadGate.CreateJob(() => StartConnection(command.Address, command.Port)).Run().AsUniTask();
             await DelayedAction.Create(0.05f, () => Debug.Log($"FishNetClientMicroservice | Client authenticated and completely started."))
@@ -184,11 +187,13 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
         {
             if (data.ConnectionState == LocalConnectionState.Started)
             {
+                Debug.Log($"FishNetClientMicroservice | Started connection to {_ip}:{_port} with connector {_currentConnector.GetType().Name}.");
                 _currentRunResult = RunResult.AuthenticationError;
                 _currentConnector.PushBroadcast(_clientManager);
             }
             else if (data.ConnectionState == LocalConnectionState.Stopped)
             {
+                Debug.Log($"FishNetClientMicroservice | Stopped connection to {_ip}:{_port} with connector {_currentConnector.GetType().Name}.");
                 if (_isSessionStarted) _currentConnector.SessionEnded();
                 _currentConnector.EndConnection();
                 _clientManager.OnClientConnectionState -= OnConnectionStateChanged;
@@ -200,7 +205,12 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             }
             else if (data.ConnectionState == LocalConnectionState.Starting)
             {
+                Debug.Log($"FishNetClientMicroservice | Starting connection to {_ip}:{_port} with connector {_currentConnector.GetType().Name}.");
                 _currentRunResult = RunResult.NotConnected;
+            }
+            else if (data.ConnectionState == LocalConnectionState.Stopping)
+            {
+                Debug.Log($"FishNetClientMicroservice | Stopping connection to {_ip}:{_port} with connector {_currentConnector.GetType().Name}.");
             }
         }
 
