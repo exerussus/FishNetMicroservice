@@ -53,7 +53,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         private readonly Dictionary<int, AuthenticationContext<TAuthenticatorData, TUserMetaData>> _inProcess = new();
         private readonly Dictionary<int, TPlayerContext> _authenticated = new ();
         private readonly Dictionary<int, IRoom> _roomsByNetworkConnectionId = new ();
-        private readonly Dictionary<int, (KickReason reson, string details)> _kickList = new();
+        private readonly Dictionary<int, (NetworkConnection, KickReason reson, string details)> _kickList = new();
         private readonly HashSet<int> _approvedList = new();
         private readonly HashSet<long> _emptyRooms = new();
         private readonly HashSet<long> _emptyRoomsToClear = new();
@@ -159,8 +159,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
 
         public void KickUser(NetworkConnection connection, KickReason reason, string details)
         {
-            _kickList.Add(connection.ClientId, (reason, details));
-            _inProcess.Remove(connection.ClientId);
+            _kickList.Add(connection.ClientId, (connection, reason, details));
         }
 
         public async UniTask PushCreatedRoom(long roomId, TRoom room, CancellationToken ct)
@@ -310,6 +309,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         {
             foreach (var (clientId, context) in _inProcess)
             {
+                if (_kickList.ContainsKey(clientId)) continue;
+                
                 if (context.DataApproved)
                 {
                     _approvedList.Add(clientId);
@@ -318,7 +319,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                 
                 if (context.KickTime < time)
                 {
-                    _kickList.Add(clientId, (KickReason.UnusualActivity, "Authentication timeout."));
+                    _kickList.Add(clientId, (context.NetworkConnection, KickReason.UnusualActivity, "Authentication timeout."));
                 }
             }
             
