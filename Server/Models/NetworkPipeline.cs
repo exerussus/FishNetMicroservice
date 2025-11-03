@@ -115,7 +115,13 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         private void OnAuthData(NetworkConnection connection, TAuthenticatorData data, Channel channel)
         {
-            if (!_fishNetServerMicroservice.AwaitingAuthenticators.TryPop(connection.ClientId, out var process)) return;
+            Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} sent authentication data {data.GetType().Name}.");
+            
+            if (!_fishNetServerMicroservice.AwaitingAuthenticators.TryPop(connection.ClientId, out var process))
+            {
+                Debug.LogError($"FishNetServerMicroservice | Player {connection.ClientId} not found in authentication queue.");
+                return;
+            }
             
             _fishNetServerMicroservice.SegregatedClients.Add(connection.ClientId, this);
             
