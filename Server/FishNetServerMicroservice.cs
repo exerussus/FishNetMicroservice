@@ -29,6 +29,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
         IChannelPullerAsync<StopServer>,
         IChannelPusherAsync<OnServerStateChanged>
     {
+        public bool traceLogsEnabled = true;
         public ConnectionStart startType;
         public ServiceHandle Handle { get; set; }
         internal ServerManager ServerManager;
@@ -139,13 +140,15 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 if (awaiter.KickTime < time && !awaiter.Kicked)
                 {
                     awaiter.Kicked = true;
-                    awaiter.NetworkConnection.Kick(KickReason.Unset, LoggingType.Warning, "Authentication not found.");
+                    awaiter.NetworkConnection.Kick(KickReason.Unset, LoggingType.Warning, $"Authentication timeout for client {awaiter.NetworkConnection.ClientId}.");
                 }
             }
         }
         
         private void OnConnectionStateChanged(NetworkConnection connection, RemoteConnectionStateArgs data)
         {
+            if (traceLogsEnabled) Debug.Log($"FishNetServerMicroservice.OnConnectionStateChanged | Client {connection.ClientId} is {data.ConnectionState}.");
+            
             if (data.ConnectionState == RemoteConnectionState.Started)
             {
                 var process = new AuthenticationAwaiter();
@@ -155,12 +158,17 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server
                 AwaitingAuthenticators.Add(connection.ClientId, process);
                 Debug.Log($"Added client {connection.ClientId} to authentication queue.");
             }
-            else
+            else if (data.ConnectionState == RemoteConnectionState.Stopped)
             {
-                if (AwaitingAuthenticators.TryPop(connection.ClientId, out var context)) return;
+                if (AwaitingAuthenticators.TryPop(connection.ClientId, out var context))
+                {
+                    if (traceLogsEnabled) Debug.Log($"FishNetServerMicroservice.OnConnectionStateChanged | Removed client {connection.ClientId} from awaiting authenticators queue.");
+                    return;
+                }
                 
                 if (SegregatedClients.TryPop(connection.ClientId, out var pipeline))
                 {
+                    if (traceLogsEnabled) Debug.Log($"FishNetServerMicroservice.OnConnectionStateChanged | Removed client {connection.ClientId} from segregated clients by {pipeline.GetType().Name} pipeline.");
                     pipeline.OnConnectionStateChanged(connection, data);
                 }
             }

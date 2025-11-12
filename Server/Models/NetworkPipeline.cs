@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.Scripts.Extensions;
 using Exerussus._1Extensions.SignalSystem;
@@ -64,6 +63,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         public IMatchMaker MatchMaker => _matchMaker;
         public ISession Session => _session;
         
+        private bool TraceEnabled => _fishNetServerMicroservice.traceLogsEnabled;
+        
         public bool TryGetRoom(NetworkConnection connection, out IRoom room)
         {
             return _roomsByNetworkConnectionId.TryGetValue(connection.ClientId, out room);
@@ -115,16 +116,17 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         private void OnAuthData(NetworkConnection connection, TAuthenticatorData data, Channel channel)
         {
-            Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} sent authentication data {data.GetType()}.");
+            if (TraceEnabled) Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} sent authentication data {data.GetType()}.");
             
             if (!_fishNetServerMicroservice.AwaitingAuthenticators.TryPop(connection.ClientId, out var process))
             {
                 Debug.LogError($"FishNetServerMicroservice | Player {connection.ClientId} not found in authentication queue.");
                 return;
             }
-            
+
             _fishNetServerMicroservice.SegregatedClients.Add(connection.ClientId, this);
-            
+            if (TraceEnabled) Debug.Log($"FishNetServerMicroservice.OnAuthData | Client {connection.ClientId} removed from authentication queue and added to segregated clients of {GetType().Name} pipeline.");
+
             var context = new AuthenticationContext<TAuthenticatorData, TUserMetaData>
             {
                 NetworkConnection = connection,
@@ -140,11 +142,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         
         private async UniTask CheckAsync(AuthenticationContext<TAuthenticatorData, TUserMetaData> context)
         {
-            Debug.Log($"FishNetServerMicroservice | Player {context.NetworkConnection.ClientId} starting to check authentication with authenticator {typeof(TAuthenticatorData)}.");
+            if (TraceEnabled) Debug.Log($"FishNetServerMicroservice.CheckAsync | Client {context.NetworkConnection.ClientId} starting to check authentication with authenticator {typeof(TAuthenticatorData)}.");
             var result = await _authenticator.OnDataCheck(context.NetworkConnection, context.AuthData, _cts.Token);
             context.MetaData = result.metaData;
 
-            Debug.Log($"FishNetServerMicroservice | Player {context.NetworkConnection.ClientId} finished checking authentication with authenticator {typeof(TAuthenticatorData)} with result <isApproved: {result.isApproved}>.");
+            if (TraceEnabled) Debug.Log($"FishNetServerMicroservice.CheckAsync | Client {context.NetworkConnection.ClientId} finished checking authentication with authenticator {typeof(TAuthenticatorData)} with result <isApproved: {result.isApproved}>.");
             if (result.isApproved)
             {
                 context.UserId = result.metaData.UserId;
@@ -166,7 +168,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
         {
             room.SetRoomRefs(roomId, _serverManager, this);
             Rooms[roomId] = room;
-            Debug.Log($"FishNetServerMicroservice | Room {roomId} created.");
+            if (TraceEnabled) Debug.Log($"FishNetServerMicroservice | Room {roomId} created.");
             await _matchMaker.OnRoomCreated(room, ct);
             await _session.OnRoomCreated(room, ct);
         }
@@ -200,7 +202,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             room.SetSessionStarted(true);
             room.Broadcast(new SessionStateChanged(true));
             
-            Debug.Log($"FishNetServerMicroservice | Starting session for room {roomId}");
+            if (TraceEnabled) Debug.Log($"FishNetServerMicroservice | Starting session for room {roomId}");
             await _session.OnSessionStarted(room, ct);
             foreach (var playerContext in room.ActiveClients) PlayerContext<TUserMetaData>.Handle.SetSessionStarted(playerContext, true);
         }
@@ -332,7 +334,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
                         _serverManager.Broadcast(context.NetworkConnection, new AuthenticationResult(false), false);
                     } 
                     else continue;
-                    context.NetworkConnection.Kick(kickContext.reson, LoggingType.Common, $"Kicked for {kickContext.details}.");
+                    context.NetworkConnection.Kick(kickContext.reson, LoggingType.Common, $"Kicked client {context.NetworkConnection.ClientId} for {kickContext.details}.");
                 }
 
                 _kickList.Clear();
@@ -387,7 +389,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             PlayerContext<TUserMetaData>.Handle.SetMetaData(playerContext, authContext.MetaData);
             _authenticated[authContext.NetworkConnection.ClientId] = playerContext;
             
-            Debug.Log($"Игрок {authContext.UserId} авторизован");
+            if (TraceEnabled) Debug.Log($"Client {authContext.UserId} successfully authenticated.");
             
             PlayerContext<TUserMetaData>.Handle.SetUserId(playerContext, authContext.UserId);
             PlayerContext<TUserMetaData>.Handle.SetNetworkConnection(playerContext, authContext.NetworkConnection);
@@ -414,19 +416,19 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             
             if (_inProcess.TryPop(connection.ClientId, out _))
             {
-                Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} kicked while authenticating.");
+                if (TraceEnabled) Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} kicked while authenticating.");
                 return;
             }
             
             if (!_authenticated.TryPop(connection.ClientId, out var context))
             {
-                Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} kicked without authenticating.");
+                if (TraceEnabled) Debug.Log($"FishNetServerMicroservice | Player {connection.ClientId} kicked without authenticating.");
                 return;
             }
             
             _matchMaker.OnPlayerDisconnected(context, _cts.Token);
             
-            Debug.Log($"Авторизация игрока {context.UserId} слетает.");
+            if (TraceEnabled) Debug.Log($"Authentication for player {context.UserId} finished.");
             
             if (!Rooms.TryGetValue(context.RoomId, out var room))
             {
@@ -435,7 +437,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Server.Models
             }
             
             room.RemoveClient(context);
-            Debug.Log($"FishNetServerMicroservice | Player {context.UserId} disconnected from room {room.UniqRoomId}.");
+            
+            if (TraceEnabled) Debug.Log($"FishNetServerMicroservice | Player {context.UserId} disconnected from room {room.UniqRoomId}.");
+            
             if (!room.IsSessionStarted)
             {
                 _session.OnDisconnectionBeforeStart(context, room, _cts.Token);
