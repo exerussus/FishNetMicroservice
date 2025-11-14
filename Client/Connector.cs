@@ -54,7 +54,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             _ip = address;
             _port = port;
             
-            await ThreadGate.CreateJob(InitializeConnector).Run().AsUniTask();
+            await ThreadGate.CreateJob(() =>
+            {
+                InitializeConnector();
+                Debug.Log("RunClient 1");
+            }).Run().AsUniTask();
 
             if (_isConnectionInProcess)
             {
@@ -73,12 +77,20 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             _isAuthenticated = false;
             _isConnectionInProcess = true;
             
+            Debug.Log("RunClient 2");
             await ThreadGate.CreateJob(() => StartConnection(_ip, _port)).Run().AsUniTask();
-            await DelayedAction.Create(0.05f, () => Debug.Log($"FishNetClientMicroservice | Client authenticated and completely started."))
+            Debug.Log("RunClient 3");
+            await DelayedAction.Create(0.5f, () => Debug.Log($"FishNetClientMicroservice | Client authenticated and completely started."))
                 .WithValidation(() => _isInitialized && _isConnectionStarted)
-                .WithCondition(() => _isStarted && _isAuthenticated)
+                .WithCondition(() =>
+                {
+                    Debug.Log($"_isStarted : {_isStarted}");
+                    Debug.Log($"_isAuthenticated : {_isAuthenticated}");
+                    return _isStarted && _isAuthenticated;
+                })
                 .Run().AsUniTask();
             
+            Debug.Log("RunClient 4");
             _isConnectionInProcess = false;
             return (_currentRunResult == RunResult.Authenticated, _currentRunResult);
         }
@@ -87,7 +99,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
         {
             if (!_isConnectionStarted) return;
 
-            ThreadGate.CreateJob(_clientManager.StopConnection).Run();
+            ThreadGate.CreateJob(() => _clientManager.StopConnection()).Run();
             
             await DelayedAction.Create(0.1f, () => Debug.Log($"FishNetClientMicroservice | StopClient"))
                 .WithCondition(() => !_isConnectionStarted)
@@ -116,7 +128,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             _clientManager.OnClientConnectionState += OnConnectionStateChanged;
             OnPreStartConnection();
             _isConnectionStarted = true;
-            ThreadGate.CreateJob(_clientManager.StartConnection).Run();
+            ThreadGate.CreateJob(() => _clientManager.StartConnection()).Run();
         }
 
         private void OnAuthenticationResult(AuthenticationResult data, Channel _)
