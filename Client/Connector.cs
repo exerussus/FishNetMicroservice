@@ -2,14 +2,12 @@
 using System;
 using Cysharp.Threading.Tasks;
 using Exerussus._1Extensions.DelayedActionsFeature;
-using Exerussus._1Extensions.LoopFeature;
 using Exerussus._1Extensions.ThreadGateFeature;
 using Exerussus.Microservices.Runtime;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Client.Models;
 using Exerussus.MicroservicesModules.FishNetMicroservice.Global.Broadcasts;
 using FishNet;
 using FishNet.Broadcast;
-using FishNet.Managing;
 using FishNet.Managing.Client;
 using FishNet.Transporting;
 using FishNet.Transporting.Tugboat;
@@ -27,7 +25,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
         
         private ClientManager _clientManager;
         private Tugboat _tugboat;
-        private NetworkManager _networkManager;
         
         [ShowInInspector, ReadOnly] private T _data;
         [ShowInInspector, ReadOnly] private string _ip;
@@ -36,14 +33,12 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
         [ShowInInspector, ReadOnly] private bool _isInitialized;
         [ShowInInspector, ReadOnly] private bool _isStarted;
         [ShowInInspector, ReadOnly] private bool _isConnectionInProcess;
-        [ShowInInspector, ReadOnly] private bool _isStopClient;
         [ShowInInspector, ReadOnly] private bool _isConnectionStarted;
         [ShowInInspector, ReadOnly] private bool _isAuthenticated;
         [ShowInInspector, ReadOnly] private bool _isSessionStarted;
 
         public void Dispose()
         {
-            ExerussusLoopHelper.OnUpdate -= Update;
             if (_clientManager != null)
             {
                 _clientManager.StopConnection();
@@ -75,13 +70,12 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             
             _isConnectionStarted = false;
             _isSessionStarted = false;
-            _isStopClient = false;
             _isAuthenticated = false;
             _isConnectionInProcess = true;
             
             await ThreadGate.CreateJob(() => StartConnection(_ip, _port)).Run().AsUniTask();
             await DelayedAction.Create(0.05f, () => Debug.Log($"FishNetClientMicroservice | Client authenticated and completely started."))
-                .WithValidation(() => _isInitialized && _isConnectionStarted && !_isStopClient)
+                .WithValidation(() => _isInitialized && _isConnectionStarted)
                 .WithCondition(() => _isStarted && _isAuthenticated)
                 .Run().AsUniTask();
             
@@ -92,8 +86,9 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
         public async UniTask StopClient()
         {
             if (!_isConnectionStarted) return;
+
+            ThreadGate.CreateJob(_clientManager.StopConnection).Run();
             
-            _isStopClient = true;
             await DelayedAction.Create(0.1f, () => Debug.Log($"FishNetClientMicroservice | StopClient"))
                 .WithCondition(() => !_isConnectionStarted)
                 .Run().AsUniTask();
@@ -106,28 +101,11 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             _isInitialized = true;
             _clientManager = InstanceFinder.ClientManager;
             _tugboat = _clientManager.GetComponent<Tugboat>();
-            _networkManager = _clientManager.NetworkManager;
             
             _clientManager.RegisterBroadcast<AuthenticationResult>(OnAuthenticationResult);
             _clientManager.RegisterBroadcast<SessionStateChanged>(OnSessionStateChanged);
-            
-            ExerussusLoopHelper.OnUpdate -= Update;
-            ExerussusLoopHelper.OnUpdate += Update;
-            
+     
             MicroservicesApi.RegisterService(this);
-        }
-
-        private void OnDestroy()
-        {
-        }
-
-        private void Update()
-        {
-            if (_isStopClient)
-            {
-                _isStopClient = false;
-                _clientManager.StopConnection();
-            }
         }
 
         private void StartConnection(string address, ushort port)
@@ -137,8 +115,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
 
             _clientManager.OnClientConnectionState += OnConnectionStateChanged;
             OnPreStartConnection();
-            _clientManager.StartConnection();
             _isConnectionStarted = true;
+            ThreadGate.CreateJob(_clientManager.StartConnection).Run();
         }
 
         private void OnAuthenticationResult(AuthenticationResult data, Channel _)
@@ -153,8 +131,8 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
             }
             else
             {
-                _isStopClient = true;
                 OnAuthenticateFailed();
+                _clientManager.StopConnection();
             }
         }
 
@@ -177,7 +155,7 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
                 Debug.Log($"FishNetClientMicroservice | Started connection to {_ip}:{_port} with connector {GetType().Name}.");
                 _currentRunResult = RunResult.AuthenticationError;
                 Debug.Log($"FishNetClientMicroservice | Sending authentication broadcast from connector {GetType().Name}.");
-                _clientManager.Broadcast<T>(_data);
+                _clientManager.Broadcast(_data);
                 OnStartConnection();
             }
             else if (data.ConnectionState == LocalConnectionState.Stopped)
@@ -188,7 +166,6 @@ namespace Exerussus.MicroservicesModules.FishNetMicroservice.Client
                 _clientManager.OnClientConnectionState -= OnConnectionStateChanged;
                 _isConnectionStarted = false;
                 _isSessionStarted = false;
-                _isStopClient = false;
                 _isAuthenticated = false;
                 _isStarted = false;
             }
